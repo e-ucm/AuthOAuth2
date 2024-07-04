@@ -280,7 +280,7 @@ class AuthOAuth2 extends AuthPluginBase
         $state = $request->getParam('state');
         $safedState = Yii::app()->session->get(self::SESSION_STATE_KEY);
         if ($state !== $safedState) {
-            throw new CHttpException(401, $this->gT('Invalid state in OAuth response'));
+            throw new CHttpException(400, $this->gT('Invalid state in OAuth response'));
         }
 
         Yii::app()->session->remove(self::SESSION_STATE_KEY);
@@ -288,14 +288,14 @@ class AuthOAuth2 extends AuthPluginBase
         try {
             $accessToken = $provider->getAccessToken('authorization_code', ['code' => $code]);
         } catch (Throwable $exception) {
-            throw new CHttpException(401, $this->gT('Failed to retrieve access token'));
+            throw new CHttpException(400, $this->gT('Failed to retrieve access token'));
         }
 
         try {
             $resourceOwner = $provider->getResourceOwner($accessToken);
             $this->resourceData = $resourceOwner->toArray();
         } catch (Throwable $exception) {
-            throw new CHttpException(401, $this->gT('Failed to retrieve user details'));
+            throw new CHttpException(400, $this->gT('Failed to retrieve user details'));
         }
 
         if ($this->get('identifier_attribute') === 'email') {
@@ -306,7 +306,7 @@ class AuthOAuth2 extends AuthPluginBase
         $userIdentifier = $this->getTemplatedKey($identifierKey);
 
         if (empty($userIdentifier)) {
-            throw new CHttpException(401, 'User identifier not found or empty');
+            throw new CHttpException(400, 'User identifier not found or empty');
         }
         $this->setUsername($userIdentifier);
         $this->setAuthPlugin();
@@ -330,10 +330,13 @@ class AuthOAuth2 extends AuthPluginBase
         }
 
         if (!$user && !$this->get('autocreate_users')) {
-            // we don't use setAuthFailure() here because if we are the active auth
-            // the error is never shown to the user but instead the user is redirected
-            // again, possibly resulting in a redirect loop
-            throw new CHttpException(401, $this->gT('User not found in LimeSurvey'));
+            if ($this->get('is_default')) {
+                /* No way to connect : throw a 403 error (avoid looping) */
+                throw new CHttpException(403, gT('Incorrect username and/or password!'));
+            } else {
+                $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
+                return;
+            }
         }
 
         if (!$user) {
