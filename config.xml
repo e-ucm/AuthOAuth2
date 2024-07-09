@@ -5,9 +5,9 @@
         <type>plugin</type>
         <creationDate>2021-12-09</creationDate>
         <lastUpdate>2024-07-03</lastUpdate>
-        <author>Roman Anasal</author>
+        <author>Roman Anasal,  Ulysseus European University , Denis Chenu</author>
         <authorUrl>https://github.com/BDSU/limesurvey-oauth2</authorUrl>
-        <version>1.1.0</version>
+        <version>1.1.1</version>
         <license>MIT</license>
         <description>Enable Single Sign-On using OAuth2</description>
     </metadata>

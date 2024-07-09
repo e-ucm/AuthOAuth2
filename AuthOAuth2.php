@@ -1,4 +1,5 @@
 <?php
+/* @version 1.1.1 */
 
 require_once(__DIR__ . '/vendor/autoload.php');
 use League\OAuth2\Client\Provider\GenericProvider;
@@ -340,6 +341,9 @@ class AuthOAuth2 extends AuthPluginBase
         }
 
         if (!$user) {
+            /* unergsiter to don't update event */
+            $this->unsubscribe('getGlobalBasePermissions');
+
             $usernameKey = $this->get('username_key');
             $username = $this->getTemplatedKey($usernameKey);
             $displayNameKey = $this->get('display_name_key');
@@ -358,18 +362,23 @@ class AuthOAuth2 extends AuthPluginBase
             if (!$user->save()) {
                 throw new CHttpException(401, $this->gT('Failed to create new user'));
             }
-
             $defaultPermissions = json_decode($this->get('autocreate_permissions', null, null, []), true);
             if (!empty($defaultPermissions)) {
                 Permission::setPermissions($user->uid, 0, 'global', $defaultPermissions, true);
             }
             /* Add auth_oauth2 permission */
             Permission::model()->setGlobalPermission($user->uid, 'auth_oauth');
+            /* Add optional roles */
             if (method_exists(Permissiontemplates::class, 'applyToUser')) {
-                foreach ($this->get('autocreate_roles', null, null, []) as $role) {
-                    Permissiontemplates::model()->applyToUser($user->uid, $role);
+                $autocreateRoles = $this->get('autocreate_roles');
+                if (!empty($autocreateRoles)) {
+                    foreach ($autocreateRoles as $role) {
+                        Permissiontemplates::model()->applyToUser($user->uid, $role);
+                    }
                 }
             }
+            $this->setUsername($user->users_name);
+            $this->setAuthSuccess($user, $oIdentityEvent);
         } else {
             /* Check for permission */
             if (!Permission::model()->hasGlobalPermission('auth_oauth', 'read', $user->uid)) {
