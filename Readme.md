@@ -45,6 +45,35 @@ to login using the internal database even when automatic redirection is enabled.
 You can find [a configuration example for Azure Active Directory here](docs/examples/AzureAD.md).  
 You can find [a configuration example for Keycloak here](docs/examples/Keycloak.md).
 
+## Default of fixed configuration
+
+You can set default configuration by array in config par of confifi file of LimeSurvey.
+
+The config are set at `AuthOAuth2Settings` key with array of settings by name. For fixed config part you use an array with settings name in `fixed` array. If you want to hide some element from gui, you can use hidden array.
+
+For example :
+```
+		// Update default LimeSurvey config here
+		'AuthOAuth2Settings' => [
+			'fixed' => [
+				'client_id' => 'MyOAuth2-clientID',
+				'client_secret' => 'MyOAuth2-secret',
+				'authorize_url' => 'https://accounts.example.com/auth',
+				'access_token_url' => 'https://oauth2.example.com/token',
+				'resource_owner_details_url' => 'https://accounts.example.com/userdetails',
+				'is_default' => true,
+			],
+			'hidden' => ['client_id','client_secret'],
+			'scopes' => 'profile,email',
+			'scope_separator' => ',',
+			'identifier_attribute' => 'username',
+			'username_key' => 'dn',
+			'email_key' => 'email',
+			'display_name_key' => 'givenName',
+		],
+```
+
+
 # Supported LimeSurvey Versions
 
 This plugin was tested with
@@ -56,4 +85,4 @@ This plugin was tested with
 and should work with all version 3.x or newer.
 Configuring user roles for new users is only supported starting with LimeSurvey 4.x.
 
-The minimum required PHP version is 5.6.
+The minimum required PHP version is 8.1.

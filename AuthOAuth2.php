@@ -1,5 +1,6 @@
 <?php
-/* @version 1.1.1 */
+
+/* @version 1.2.1 */
 
 require_once(__DIR__ . '/vendor/autoload.php');
 use League\OAuth2\Client\Provider\GenericProvider;
@@ -19,20 +20,44 @@ class AuthOAuth2 extends AuthPluginBase
 
     protected $resourceData = [];
 
+    /* @var array Check getPluginSettings */
     protected $settings = [];
 
-    public function __construct(PluginManager $manager, $id)
+    public function init(): void
     {
-        parent::__construct($manager, $id);
+        $this->subscribe('beforeLogin');
+        $this->subscribe('newUserSession');
+        $this->subscribe('newLoginForm');
+        $this->subscribe('getGlobalBasePermissions');
+    }
 
+    /**
+     * @see parent:getPluginSettings
+     * @param mixed $getValues
+     */
+    public function getPluginSettings($getValues = true)
+    {
+        if (!Permission::model()->hasGlobalPermission('settings', 'read')) {
+            throw new CHttpException(403);
+        }
+        /* Definition and default */
+        $fixedPluginSettings = $this->getFixedGlobalSetting();
         $this->settings = [
             'client_id' => [
                 'type' => 'string',
-                    'label' => $this->gT('Client ID'),
+                'label' => $this->gT('Client ID'),
+                'default' => $this->getGlobalSetting('client_id'),
+                'htmlOptions' => [
+                    'readonly' => in_array('client_id', $fixedPluginSettings)
+                ]
             ],
             'client_secret' => [
                 'type' => 'string',
                 'label' => $this->gT('Client Secret'),
+                'default' => $this->getGlobalSetting('client_secret'),
+                'htmlOptions' => [
+                    'readonly' => in_array('client_secret', $fixedPluginSettings)
+                ]
             ],
             'redirect_uri' => [
                 'type' => 'info',
@@ -50,26 +75,45 @@ class AuthOAuth2 extends AuthPluginBase
             'authorize_url' => [
                 'type' => 'string',
                 'label' => $this->gT('Authorize URL'),
+                'default' => $this->getGlobalSetting('authorize_url'),
+                'htmlOptions' => [
+                    'readonly' => in_array('authorize_url', $fixedPluginSettings)
+                ]
             ],
             'scopes' => [
                 'type' => 'string',
                 'label' => $this->gT('Scopes'),
                 'help' => $this->gT('Comma-separated list of scopes to use for authorization.'),
+                'default' => $this->getGlobalSetting('scopes'),
+                'htmlOptions' => [
+                    'readonly' => in_array('scopes', $fixedPluginSettings)
+                ]
             ],
             'scope_separator' => [
                 'type' => 'string',
                 'label' => $this->gT('Scopes separator in URL'),
                 'help' => $this->gT('Separate scopes in authorization URL.'),
-                'default' => ',',
+                'default' => $this->getGlobalSetting('scope_separator', ','),
+                'htmlOptions' => [
+                    'readonly' => in_array('scope_separator', $fixedPluginSettings)
+                ]
             ],
             'access_token_url' => [
                 'type' => 'string',
                 'label' => $this->gT('Access Token URL'),
+                'default' => $this->getGlobalSetting('access_token_url', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('access_token_url', $fixedPluginSettings)
+                ]
             ],
             'resource_owner_details_url' => [
                 'type' => 'string',
                 'label' => $this->gT('User Details URL'),
                 'help' => $this->gT('URL to load the user details from using the retrieved access token.'),
+                'default' => $this->getGlobalSetting('resource_owner_details_url', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('resource_owner_details_url', $fixedPluginSettings)
+                ]
             ],
             'identifier_attribute' => [
                 'type' => 'select',
@@ -79,22 +123,40 @@ class AuthOAuth2 extends AuthPluginBase
                     'username' => $this->gT('Username'),
                     'email' => $this->gT('E-Mail'),
                 ],
-                'default' => 'username',
+                'default' => $this->getGlobalSetting('identifier_attribute', 'username'),
+                'htmlOptions' => [
+                    'disabled' => in_array('identifier_attribute', $fixedPluginSettings)
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('identifier_attribute', $fixedPluginSettings)
+                ]
             ],
             'username_key' => [
                 'type' => 'string',
                 'label' => $this->gT('Key for username in user details'),
                 'help' => $this->gT('Key for the username in the user details data. Only required if used as "Identifier Attibute" or if "Create new users" is enabled.'),
+                'default' => $this->getGlobalSetting('username_key', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('username_key', $fixedPluginSettings)
+                ]
             ],
             'email_key' => [
                 'type' => 'string',
                 'label' => $this->gT('Key for e-mail in user details'),
                 'help' => $this->gT('Key for the e-mail in the user details data. Only required if used as "Identifier Attibute" or if "Create new users" is enabled.'),
+                'default' => $this->getGlobalSetting('email_key', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('email_key', $fixedPluginSettings)
+                ]
             ],
             'display_name_key' => [
                 'type' => 'string',
                 'label' => $this->gT('Key for display name in user details'),
                 'help' => $this->gT('Key for the full name in the user details data. Only required if "Create new users" is enabled.'),
+                'default' => $this->getGlobalSetting('display_name_key', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('display_name_key', $fixedPluginSettings)
+                ]
             ],
             'is_default' => [
                 'type' => 'checkbox',
@@ -104,27 +166,37 @@ class AuthOAuth2 extends AuthPluginBase
                     $this->gT('If enabled instead of showing the LimeSurvey login the user is redirected directly to the OAuth2 login. The default login form can always be accessed via:'),
                     htmlspecialchars($this->api->createUrl('admin/authentication/sa/login', ['authMethod' => 'Authdb']))
                 ),
-                'default' => false,
+                'default' => $this->getGlobalSetting('is_default', false),
+                'htmlOptions' => [
+                    'readonly' => in_array('is_default', $fixedPluginSettings)
+                ]
             ],
             'autocreate_users' => [
                 'type' => 'checkbox',
                 'label' => $this->gT('Create new users'),
                 'help' => $this->gT('If enabled users that do not exist yet will be created in LimeSurvey after successfull login.'),
-                'default' => false,
+                'default' => $this->getGlobalSetting('autocreate_users', false),
+                'htmlOptions' => [
+                    'readonly' => in_array('autocreate_users', $fixedPluginSettings)
+                ]
             ],
             'introduction_text' => [
                 'type' => 'string',
+                'label' => $this->gT('Introduction to the OAuth login button.'),
+                'default' => $this->getGlobalSetting('introduction_text', ''),
                 'htmlOptions' => [
                     'placeholder' => $this->gT('Login with Oauth2'),
-                ],
-                'label' => $this->gT('Introduction to the OAuth login button.'),
+                    'readonly' => in_array('introduction_text', $fixedPluginSettings)
+                ]
             ],
             'button_text' => [
                 'type' => 'string',
+                'label' => $this->gT('Text on login button.'),
+                'default' => $this->getGlobalSetting('button_text', ''),
                 'htmlOptions' => [
                     'placeholder' => $this->gT('Login'),
-                ],
-                'label' => $this->gT('Text on login button.'),
+                    'readonly' => in_array('button_text', $fixedPluginSettings)
+                ]
             ],
         ];
 
@@ -142,6 +214,13 @@ class AuthOAuth2 extends AuthPluginBase
                 'htmlOptions' => [
                     'multiple' => true
                 ],
+                'default' => $this->getGlobalSetting('autocreate_roles', ''),
+                'htmlOptions' => [
+                    'disabled' => in_array('autocreate_roles', $fixedPluginSettings)
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('autocreate_roles', $fixedPluginSettings)
+                ]
             ];
         }
 
@@ -153,78 +232,37 @@ class AuthOAuth2 extends AuthPluginBase
                 CHtml::tag('pre', [], "{\n\t\"surveys\": { ... },\n\t\"templates\": {\n\t\t\"create\": false,\n\t\t\"read\": false,\n\t\t\"update\": false,\n\t\t\"delete\": false,\n\t\t\"import\": false,\n\t\t\"export\": false,\n\t},\n\t\"users\": { ... },\n\t...\n}")
             ),
             'editorOptions' => array('mode' => 'tree'),
-            'default' => json_encode([
-                'users' => [
-                    'create' => false,
-                    'read' => false,
-                    'update' => false,
-                    'delete' => false,
-                ],
-                'usergroups' => [
-                    'create' => false,
-                    'read' => false,
-                    'update' => false,
-                    'delete' => false,
-                ],
-                'labelsets' => [
-                    'create' => false,
-                    'read' => false,
-                    'update' => false,
-                    'delete' => false,
-                    'import' => false,
-                    'export' => false,
-                ],
-                'templates' => [
-                    'create' => false,
-                    'read' => false,
-                    'update' => false,
-                    'delete' => false,
-                    'import' => false,
-                    'export' => false,
-                ],
-                'settings' => [
-                    'read' => false,
-                    'update' => false,
-                    'import' => false,
-                ],
-                'surveys' => [
-                    'create' => true,
-                    'read' => false,
-                    'update' => false,
-                    'delete' => false,
-                    'export' => false,
-                ],
-                'participantpanel' => [
-                    'create' => false,
-                    'read' => false,
-                    'update' => false,
-                    'delete' => false,
-                    'import' => false,
-                    'export' => false,
-                ],
-                'auth_db' => [
-                    'read' => false,
-                ],
-            ]),
+            'default' => $this->getGlobalSetting(
+                'autocreate_permissions',
+                self::getDefaultPermission()
+            ),
+            'htmlOptions' => [
+                'readonly' => in_array('autocreate_permissions', $fixedPluginSettings)
+            ],
         ];
-    }
-
-    public function init(): void
-    {
-        $this->subscribe('beforeLogin');
-        $this->subscribe('newUserSession');
-        $this->subscribe('newLoginForm');
-        $this->subscribe('getGlobalBasePermissions');
+        /* Get current */
+        $pluginSettings = parent::getPluginSettings($getValues);
+        /* Update current for fixed one */
+        if ($getValues) {
+            foreach ($fixedPluginSettings as $setting) {
+                $pluginSettings[$setting]['current'] = $this->getGlobalSetting($setting);
+            }
+        }
+        /* Remove hidden */
+        foreach ($this->getHiddenGlobalSetting() as $setting) {
+            unset($pluginSettings[$setting]);
+        }
+        return $pluginSettings;
     }
 
     public function newLoginForm()
     {
         $oEvent = $this->getEvent();
-        $introductionText = viewHelper::purified(trim($this->get('introduction_text')));
+        $introductionText = viewHelper::purified(trim($this->getGlobalSetting('introduction_text')));
         if (empty($introductionText)) {
             $introductionText = $this->gT("Login with Oauth2");
         }
-        $buttonText = viewHelper::purified(trim($this->get('button_text')));
+        $buttonText = viewHelper::purified(trim($this->getGlobalSetting('button_text')));
         if (empty($buttonText)) {
             $buttonText = $this->gT("Login");
         }
@@ -234,7 +272,7 @@ class AuthOAuth2 extends AuthPluginBase
         ];
         $authContent = $content = $this->renderPartial('admin.authentication.Oauth2LoginButton', $aData, true);
         $allFromsContent = $oEvent->getAllContent();
-        foreach($allFromsContent as $plugin => $content) {
+        foreach ($allFromsContent as $plugin => $content) {
             $oEvent->getContent($plugin)->addContent($authContent, 'prepend');
         }
     }
@@ -250,23 +288,23 @@ class AuthOAuth2 extends AuthPluginBase
         }
 
         $provider = new GenericProvider([
-            'clientId' => $this->get('client_id'),
-            'clientSecret' => $this->get('client_secret'),
+            'clientId' => $this->getGlobalSetting('client_id'),
+            'clientSecret' => $this->getGlobalSetting('client_secret'),
             'redirectUri' => $this->api->createUrl('admin/authentication/sa/login', []),
-            'urlAuthorize' => $this->get('authorize_url'),
-            'urlAccessToken' => $this->get('access_token_url'),
-            'urlResourceOwnerDetails' => $this->get('resource_owner_details_url'),
-            'scopeSeparator' => $this->get('scope_separator'),
+            'urlAuthorize' => $this->getGlobalSetting('authorize_url'),
+            'urlAccessToken' => $this->getGlobalSetting('access_token_url'),
+            'urlResourceOwnerDetails' => $this->getGlobalSetting('resource_owner_details_url'),
+            'scopeSeparator' => $this->getGlobalSetting('scope_separator'),
             'scopes' => array_map(
                 function ($scope) {
                     return trim($scope);
                 },
-                explode(',', $this->get('scopes', null, null, ''))
+                explode(',', $this->getGlobalSetting('scopes', ''))
             ),
         ]);
 
         $code = $request->getParam('code');
-        $defaultAuth = $this->get('is_default') ? self::class : null;
+        $defaultAuth = $this->getGlobalSetting('is_default') ? self::class : null;
         if (empty($code) && $request->getParam('authMethod', $defaultAuth) !== self::class) {
             return;
         }
@@ -299,10 +337,10 @@ class AuthOAuth2 extends AuthPluginBase
             throw new CHttpException(400, $this->gT('Failed to retrieve user details'));
         }
 
-        if ($this->get('identifier_attribute') === 'email') {
-            $identifierKey = $this->get('email_key');
+        if ($this->getGlobalSetting('identifier_attribute') === 'email') {
+            $identifierKey = $this->getGlobalSetting('email_key');
         } else {
-            $identifierKey = $this->get('username_key');
+            $identifierKey = $this->getGlobalSetting('username_key');
         }
         $userIdentifier = $this->getTemplatedKey($identifierKey);
 
@@ -323,15 +361,16 @@ class AuthOAuth2 extends AuthPluginBase
         if ($identity->plugin != self::class || $identity->username !== $userIdentifier) {
             return;
         }
+        $oIdentityEvent = $this->getEvent();
 
-        if ($this->get('identifier_attribute') === 'email') {
+        if ($this->getGlobalSetting('identifier_attribute') === 'email') {
             $user = $this->api->getUserByEmail($userIdentifier);
         } else {
             $user = $this->api->getUserByName($userIdentifier);
         }
 
-        if (!$user && !$this->get('autocreate_users')) {
-            if ($this->get('is_default')) {
+        if (!$user && !$this->getGlobalSetting('autocreate_users')) {
+            if ($this->getGlobalSetting('is_default')) {
                 /* No way to connect : throw a 403 error (avoid looping) */
                 throw new CHttpException(403, gT('Incorrect username and/or password!'));
             } else {
@@ -344,11 +383,11 @@ class AuthOAuth2 extends AuthPluginBase
             /* unergsiter to don't update event */
             $this->unsubscribe('getGlobalBasePermissions');
 
-            $usernameKey = $this->get('username_key');
+            $usernameKey = $this->getGlobalSetting('username_key');
             $username = $this->getTemplatedKey($usernameKey);
-            $displayNameKey = $this->get('display_name_key');
+            $displayNameKey = $this->getGlobalSetting('display_name_key');
             $displayName = $this->getTemplatedKey($displayNameKey, ' ');
-            $emailKey = $this->get('email_key');
+            $emailKey = $this->getGlobalSetting('email_key');
             $email = $this->getFromResourceData($emailKey);
 
             $user = new User();
@@ -362,7 +401,7 @@ class AuthOAuth2 extends AuthPluginBase
             if (!$user->save()) {
                 throw new CHttpException(401, $this->gT('Failed to create new user'));
             }
-            $defaultPermissions = json_decode($this->get('autocreate_permissions', null, null, []), true);
+            $defaultPermissions = @json_decode($this->getGlobalSetting('autocreate_permissions', self::getDefaultPermission()), true);
             if (!empty($defaultPermissions)) {
                 Permission::setPermissions($user->uid, 0, 'global', $defaultPermissions, true);
             }
@@ -370,9 +409,9 @@ class AuthOAuth2 extends AuthPluginBase
             Permission::model()->setGlobalPermission($user->uid, 'auth_oauth');
             /* Add optional roles */
             if (method_exists(Permissiontemplates::class, 'applyToUser')) {
-                $autocreateRoles = $this->get('autocreate_roles');
+                $autocreateRoles = $this->getGlobalSetting('autocreate_roles');
                 if (!empty($autocreateRoles)) {
-                    foreach ($autocreateRoles as $role) {
+                    foreach ($this->getGlobalSetting('autocreate_roles', null, null, []) as $role) {
                         Permissiontemplates::model()->applyToUser($user->uid, $role);
                     }
                 }
@@ -392,7 +431,7 @@ class AuthOAuth2 extends AuthPluginBase
                 if (empty($permissionnExist)) {
                     Permission::model()->setGlobalPermission($user->uid, 'auth_oauth');
                 } else {
-                    if ($this->get('is_default')) {
+                    if ($this->getGlobalSetting('is_default')) {
                         /* No way to connect : throw a 403 error (avoid looping) */
                         throw new CHttpException(403, gT('Incorrect username and/or password!'));
                     } else {
@@ -483,5 +522,116 @@ class AuthOAuth2 extends AuthPluginBase
             $value = $this->resourceData[$key];
         }
         return $value;
+    }
+
+    /**
+     * get settings according to current DB and fixed config.php
+     * @param string $setting
+     * @param mixed $default
+     * @return mixed
+     */
+    private function getGlobalSetting($setting, $default = null)
+    {
+        $AuthOAuth2Settings = App()->getConfig('AuthOAuth2Settings');
+        if (isset($AuthOAuth2Settings['fixed'][$setting])) {
+            return $AuthOAuth2Settings['fixed'][$setting];
+        }
+        if (isset($AuthOAuth2Settings[$setting])) {
+            return $this->get($setting, null, null, $AuthOAuth2Settings[$setting]);
+        }
+        return $this->get($setting, null, null, $default);
+    }
+
+    /**
+     * Get the fixed settings name
+     * @return string[]
+     */
+    private function getFixedGlobalSetting()
+    {
+        $AuthOAuth2Setting = App()->getConfig('AuthOAuth2Settings');
+        if (isset($AuthOAuth2Setting['fixed'])) {
+            return array_keys($AuthOAuth2Setting['fixed']);
+        }
+        return [];
+    }
+
+    /**
+     * Get the hidden settings name
+     * @return string[]
+     */
+    private function getHiddenGlobalSetting()
+    {
+        $AuthOAuth2Setting = App()->getConfig('AuthOAuth2Settings');
+        if (isset($AuthOAuth2Setting['hidden'])) {
+            return $AuthOAuth2Setting['hidden'];
+        }
+        return [];
+    }
+
+     /**
+      * Return global default permission
+      * @return string
+      */
+    private static function getDefaultPermission()
+    {
+        return json_encode([
+            'surveys' => [
+                'create' => true,
+                'read' => false,
+                'update' => false,
+                'delete' => false,
+                'export' => false,
+            ],
+            'surveysgroups' => [
+                'create' => false,
+                'read' => true,
+                'update' => false,
+                'delete' => false,
+            ],
+            'labelsets' => [
+                'create' => false,
+                'read' => true,
+                'update' => false,
+                'delete' => false,
+                'import' => false,
+                'export' => false,
+            ],
+            'templates' => [
+                'create' => false,
+                'read' => true,
+                'update' => false,
+                'delete' => false,
+                'import' => false,
+                'export' => false,
+            ],
+            'users' => [
+                'create' => false,
+                'read' => false,
+                'update' => false,
+                'delete' => false,
+            ],
+            'usergroups' => [
+                'create' => false,
+                'read' => false,
+                'update' => false,
+                'delete' => false,
+            ],
+            'settings' => [
+                'read' => false,
+                'update' => false,
+                'import' => false,
+            ],
+            'participantpanel' => [
+                'create' => false,
+                'read' => false,
+                'update' => false,
+                'delete' => false,
+                'import' => false,
+                'export' => false,
+            ],
+            'auth_db' => [
+                'read' => false,
+            ]
+        ]);
     }
 }
