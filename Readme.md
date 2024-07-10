@@ -9,18 +9,19 @@ _authorization code grant_ flow and supports automatic creation of new users.
 
 # Installation
 
-- go to [releases](https://github.com/BDSU/limesurvey-oauth2/releases) and download the latest release Zip archive
-- for LimeSurvey 5.x and above : upload the Zip archive in the plugin manager
-- for LimeSurvey 3.x: extract the Zip archive and place the contents in `<limesurvey_root>/plugins/AuthOAuth2/`
-- configure the plugin in the plugin manager
-- activate the plugin in the plugin manager
-
-To test the latest development version `git clone` [this repository](https://github.com/BDSU/limesurvey-oauth2)
+For the current version `git clone` [this repository](https://github.com/SondagesPro/limesurvey-oauth2.git)
 into `<limesurvey_root>/plugins/AuthOAuth2/` and run `composer install` in it to download all dependencies.
+
+```
+cd ./plugins/
+git clone https://github.com/SondagesPro/limesurvey-oauth2.git AuthOAuth2
+cd AuthOAuth2
+composer install
+```
 
 # Configuration
 
-Before activating the plugin open its configuration from the plugin manager.
+Before activating the plugin open its configuration from the plugin manager or create your own configuration in `application/config/config.php` file
 
 With your identity provider create a new app for LimeSurvey and paste the _Redirect URI_ shown in the
 LimeSurvey configuration there. Fill in the _Client ID_, _Client Secret_, _Authorize URL_, _Scopes_ and
@@ -47,9 +48,9 @@ You can find [a configuration example for Keycloak here](docs/examples/Keycloak.
 
 ## Default of fixed configuration
 
-You can set default configuration by array in config par of confifi file of LimeSurvey.
+You can set default configuration by array in config part of LimeSurvey config file.
 
-The config are set at `AuthOAuth2Settings` key with array of settings by name. For fixed config part you use an array with settings name in `fixed` array. If you want to hide some element from gui, you can use hidden array.
+The config are set at `AuthOAuth2Settings` key with array of settings by name. For fixed config part you use an array with settings name in `fixed` array. If you want to hide some element from gui, you can use `hidden` array.
 
 For example :
 ```
