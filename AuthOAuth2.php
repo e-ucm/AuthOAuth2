@@ -1,6 +1,6 @@
 <?php
 
-/* @version 1.2.1 */
+/* @version 1.2.2 */
 
 require_once(__DIR__ . '/vendor/autoload.php');
 use League\OAuth2\Client\Provider\GenericProvider;
@@ -495,7 +495,7 @@ class AuthOAuth2 extends AuthPluginBase
                             $value = strtolower($value);
                         }
                     } else {
-                        $sub_key_modified = $this->getFromResourceData($sub_key_modified);
+                        $value = $this->getFromResourceData($sub_key_modified);
                     }
                     return $value;
                 },
