@@ -1,6 +1,6 @@
 <?php
 
-/* @version 1.2.2 */
+/* @version 1.3.0 */
 
 require_once(__DIR__ . '/vendor/autoload.php');
 use League\OAuth2\Client\Provider\GenericProvider;
@@ -212,14 +212,39 @@ class AuthOAuth2 extends AuthPluginBase
                 'help' => $this->gT('Global user roles to be assigned to users that are automatically created.'),
                 'options' => $roles,
                 'htmlOptions' => [
-                    'multiple' => true
+                    'multiple' => true,
+                    'disabled' => in_array('autocreate_roles', $fixedPluginSettings)
                 ],
                 'default' => $this->getGlobalSetting('autocreate_roles', ''),
-                'htmlOptions' => [
-                    'disabled' => in_array('autocreate_roles', $fixedPluginSettings)
-                ],
                 'selectOptions' => [
                     'disabled' => in_array('autocreate_roles', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_key'] = [
+                'type' => 'string',
+                'label' => $this->gT('Key for roles in user detail'),
+                'help' => $this->gT('Key to get the user roles. Must be an array, if roles exist : it was assigned to the user when it was created.'),
+                'default' => $this->getGlobalSetting('roles_key', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('roles_key', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_removetext'] = [
+                'type' => 'string',
+                'label' => $this->gT('Allow you to remove specific string on the roles returnned'),
+                'help' => $this->gT('This string was removed to the roles returned before comparaison.'),
+                'default' => $this->getGlobalSetting('roles_removetext', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('roles_removetext', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_insensitive'] = [
+                'type' => 'checkbox',
+                'label' => $this->gT('Insensitive comparaison for roles'),
+                'help' => $this->gT('Do an insensitive comparaison before search the roles.'),
+                'default' => $this->getGlobalSetting('roles_insensitive', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('roles_insensitive', $fixedPluginSettings)
                 ]
             ];
         }
@@ -380,7 +405,7 @@ class AuthOAuth2 extends AuthPluginBase
         }
 
         if (!$user) {
-            /* unergsiter to don't update event */
+            /* unregsiter to don't update event */
             $this->unsubscribe('getGlobalBasePermissions');
 
             $usernameKey = $this->getGlobalSetting('username_key');
@@ -411,8 +436,29 @@ class AuthOAuth2 extends AuthPluginBase
             if (method_exists(Permissiontemplates::class, 'applyToUser')) {
                 $autocreateRoles = $this->getGlobalSetting('autocreate_roles');
                 if (!empty($autocreateRoles)) {
-                    foreach ($this->getGlobalSetting('autocreate_roles', null, null, []) as $role) {
+                    foreach ($autocreateRoles as $role) {
                         Permissiontemplates::model()->applyToUser($user->uid, $role);
+                    }
+                }
+                $rolesKey = $this->getGlobalSetting('roles_key', '');
+                if (!empty($rolesKey)) {
+                    $aRoles = $this->getFromResourceData($rolesKey);
+                    if (!empty($aRoles)) {
+                        $aRoles = (array) $aRoles;
+                        foreach ($aRoles as $role) {
+                            $rolesRemovetext = $this->getGlobalSetting('roles_removetext', '');
+                            $role = str_replace($rolesRemovetext, '', $role);
+                            $criteria = new CDbCriteria();
+                            if ($this->getGlobalSetting('roles_insensitive', false)) {
+                                $criteria->compare('LOWER(name)', strtolower($role), true);
+                            } else {
+                                $criteria->compare('name', $role, true);
+                            }
+                            $oRole = Permissiontemplates::model()->find($criteria);
+                            if ($oRole) {
+                                Permissiontemplates::model()->applyToUser($user->uid, $oRole->ptid);
+                            }
+                        }
                     }
                 }
             }
@@ -513,7 +559,7 @@ class AuthOAuth2 extends AuthPluginBase
      * @param string $key
      * @return mixed
      */
-    function getFromResourceData(string $key): mixed
+    private function getFromResourceData(string $key): mixed
     {
         $value = '';
         if (empty($this->resourceData[$key])) {
