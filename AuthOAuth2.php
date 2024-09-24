@@ -1,6 +1,6 @@
 <?php
 
-/* @version 1.3.0 */
+/* @version 1.4.0 */
 
 require_once(__DIR__ . '/vendor/autoload.php');
 use League\OAuth2\Client\Provider\GenericProvider;
@@ -229,6 +229,24 @@ class AuthOAuth2 extends AuthPluginBase
                     'readonly' => in_array('roles_key', $fixedPluginSettings)
                 ]
             ];
+            $this->settings['roles_update'] = [
+                'type' => 'checkbox',
+                'label' => $this->gT('Update roles at each log in'),
+                'help' => $this->gT('Check and update roles each time an user log in.'),
+                'default' => $this->getGlobalSetting('roles_update', ''),
+                'htmlOptions' => [
+                    'disabled' => in_array('roles_update', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_needed'] = [
+                'type' => 'string',
+                'label' => $this->gT('Need a minimum one role to allow log in or create user.'),
+                'help' => $this->gT('If user didn\'t have any roles : disallow log in. Roles name are not checked with existing role.'),
+                'default' => $this->getGlobalSetting('roles_needed', ''),
+                'htmlOptions' => [
+                    'disabled' => in_array('roles_needed', $fixedPluginSettings)
+                ]
+            ];
             $this->settings['roles_removetext'] = [
                 'type' => 'string',
                 'label' => $this->gT('Allow you to remove specific string on the roles returnned'),
@@ -403,9 +421,20 @@ class AuthOAuth2 extends AuthPluginBase
                 return;
             }
         }
-
+        if ($this->getGlobalSetting('roles_needed', false) && $this->getGlobalSetting('roles_key', '')) {
+            $aRoles = $this->getFromResourceData($rolesKey);
+            if (empty($aRoles)) {
+                if ($this->getGlobalSetting('is_default')) {
+                    /* No way to connect : throw a 403 error (avoid looping) */
+                    throw new CHttpException(403, gT('Incorrect username and/or password!'));
+                } else {
+                    $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
+                    return;
+                }
+            }
+        }
         if (!$user) {
-            /* unregsiter to don't update event */
+            /* unregister to don't update event */
             $this->unsubscribe('getGlobalBasePermissions');
 
             $usernameKey = $this->getGlobalSetting('username_key');
@@ -440,31 +469,16 @@ class AuthOAuth2 extends AuthPluginBase
                         Permissiontemplates::model()->applyToUser($user->uid, $role);
                     }
                 }
-                $rolesKey = $this->getGlobalSetting('roles_key', '');
-                if (!empty($rolesKey)) {
-                    $aRoles = $this->getFromResourceData($rolesKey);
-                    if (!empty($aRoles)) {
-                        $aRoles = (array) $aRoles;
-                        foreach ($aRoles as $role) {
-                            $rolesRemovetext = $this->getGlobalSetting('roles_removetext', '');
-                            $role = str_replace($rolesRemovetext, '', $role);
-                            $criteria = new CDbCriteria();
-                            if ($this->getGlobalSetting('roles_insensitive', false)) {
-                                $criteria->compare('LOWER(name)', strtolower($role), true);
-                            } else {
-                                $criteria->compare('name', $role, true);
-                            }
-                            $oRole = Permissiontemplates::model()->find($criteria);
-                            if ($oRole) {
-                                Permissiontemplates::model()->applyToUser($user->uid, $oRole->ptid);
-                            }
-                        }
-                    }
-                }
+                $this->setRolesToUser($user->uid);
             }
             $this->setUsername($user->users_name);
             $this->setAuthSuccess($user, $oIdentityEvent);
         } else {
+            /* Update roles if needed */
+            if ($this->getGlobalSetting('roles_update', false)) {
+                UserInPermissionrole::model()->deleteAll("uid = :uid", [':uid' => $user->uid]);
+                $this->setRolesToUser($user->uid);
+            }
             /* Check for permission */
             if (!Permission::model()->hasGlobalPermission('auth_oauth', 'read', $user->uid)) {
                 /* Check if permission exist : if not create as true, else send error */
@@ -679,5 +693,40 @@ class AuthOAuth2 extends AuthPluginBase
                 'read' => false,
             ]
         ]);
+    }
+
+    /**
+     * Set the roles using current settings
+     * @param integer $userId
+     */
+    private function setRolesToUser($userId)
+    {
+        $rolesKey = $this->getGlobalSetting('roles_key', '');
+        if (!empty($rolesKey)) {
+            $aRoles = $this->getFromResourceData($rolesKey);
+            if (!empty($aRoles)) {
+                $resetPermssion = false;
+                $aRoles = (array) $aRoles;
+                foreach ($aRoles as $role) {
+                    $rolesRemovetext = $this->getGlobalSetting('roles_removetext', '');
+                    $role = str_replace($rolesRemovetext, '', $role);
+                    $criteria = new CDbCriteria();
+                    if ($this->getGlobalSetting('roles_insensitive', false)) {
+                        $criteria->compare('LOWER(name)', strtolower($role), true);
+                    } else {
+                        $criteria->compare('name', $role, true);
+                    }
+                    $oRole = Permissiontemplates::model()->find($criteria);
+                    if ($oRole) {
+                        $resetPermssion = true;
+                        Permissiontemplates::model()->applyToUser($userId, $oRole->ptid);
+                    }
+                }
+                // Set the auth_oauth global permission to 0 (not used if have roles, but keep it at 0 for roles_needed
+                if ($resetPermssion) {
+                    Permission::model()->setGlobalPermission($user->uid, 'auth_oauth', []);
+                }
+            }
+        }
     }
 }
