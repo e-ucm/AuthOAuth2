@@ -1,6 +1,6 @@
 <?php
 
-/* @version 1.2.2 */
+/* @version 1.4.0 */
 
 require_once(__DIR__ . '/vendor/autoload.php');
 use League\OAuth2\Client\Provider\GenericProvider;
@@ -212,14 +212,57 @@ class AuthOAuth2 extends AuthPluginBase
                 'help' => $this->gT('Global user roles to be assigned to users that are automatically created.'),
                 'options' => $roles,
                 'htmlOptions' => [
-                    'multiple' => true
+                    'multiple' => true,
+                    'disabled' => in_array('autocreate_roles', $fixedPluginSettings)
                 ],
                 'default' => $this->getGlobalSetting('autocreate_roles', ''),
-                'htmlOptions' => [
-                    'disabled' => in_array('autocreate_roles', $fixedPluginSettings)
-                ],
                 'selectOptions' => [
                     'disabled' => in_array('autocreate_roles', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_key'] = [
+                'type' => 'string',
+                'label' => $this->gT('Key for roles in user detail'),
+                'help' => $this->gT('Key to get the user roles. Must be an array, if roles exist : it was assigned to the user when it was created.'),
+                'default' => $this->getGlobalSetting('roles_key', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('roles_key', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_update'] = [
+                'type' => 'checkbox',
+                'label' => $this->gT('Update roles at each log in'),
+                'help' => $this->gT('Check and update roles each time an user log in.'),
+                'default' => $this->getGlobalSetting('roles_update', ''),
+                'htmlOptions' => [
+                    'disabled' => in_array('roles_update', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_needed'] = [
+                'type' => 'string',
+                'label' => $this->gT('Need a minimum one role to allow log in or create user.'),
+                'help' => $this->gT('If user didn\'t have any roles : disallow log in. Roles name are not checked with existing role.'),
+                'default' => $this->getGlobalSetting('roles_needed', ''),
+                'htmlOptions' => [
+                    'disabled' => in_array('roles_needed', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_removetext'] = [
+                'type' => 'string',
+                'label' => $this->gT('Allow you to remove specific string on the roles returnned'),
+                'help' => $this->gT('This string was removed to the roles returned before comparaison.'),
+                'default' => $this->getGlobalSetting('roles_removetext', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('roles_removetext', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_insensitive'] = [
+                'type' => 'checkbox',
+                'label' => $this->gT('Insensitive comparaison for roles'),
+                'help' => $this->gT('Do an insensitive comparaison before search the roles.'),
+                'default' => $this->getGlobalSetting('roles_insensitive', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('roles_insensitive', $fixedPluginSettings)
                 ]
             ];
         }
@@ -378,9 +421,20 @@ class AuthOAuth2 extends AuthPluginBase
                 return;
             }
         }
-
+        if ($this->getGlobalSetting('roles_needed', false) && $this->getGlobalSetting('roles_key', '')) {
+            $aRoles = $this->getFromResourceData($rolesKey);
+            if (empty($aRoles)) {
+                if ($this->getGlobalSetting('is_default')) {
+                    /* No way to connect : throw a 403 error (avoid looping) */
+                    throw new CHttpException(403, gT('Incorrect username and/or password!'));
+                } else {
+                    $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
+                    return;
+                }
+            }
+        }
         if (!$user) {
-            /* unergsiter to don't update event */
+            /* unregister to don't update event */
             $this->unsubscribe('getGlobalBasePermissions');
 
             $usernameKey = $this->getGlobalSetting('username_key');
@@ -411,14 +465,20 @@ class AuthOAuth2 extends AuthPluginBase
             if (method_exists(Permissiontemplates::class, 'applyToUser')) {
                 $autocreateRoles = $this->getGlobalSetting('autocreate_roles');
                 if (!empty($autocreateRoles)) {
-                    foreach ($this->getGlobalSetting('autocreate_roles', null, null, []) as $role) {
+                    foreach ($autocreateRoles as $role) {
                         Permissiontemplates::model()->applyToUser($user->uid, $role);
                     }
                 }
+                $this->setRolesToUser($user->uid);
             }
             $this->setUsername($user->users_name);
             $this->setAuthSuccess($user, $oIdentityEvent);
         } else {
+            /* Update roles if needed */
+            if ($this->getGlobalSetting('roles_update', false)) {
+                UserInPermissionrole::model()->deleteAll("uid = :uid", [':uid' => $user->uid]);
+                $this->setRolesToUser($user->uid);
+            }
             /* Check for permission */
             if (!Permission::model()->hasGlobalPermission('auth_oauth', 'read', $user->uid)) {
                 /* Check if permission exist : if not create as true, else send error */
@@ -513,7 +573,7 @@ class AuthOAuth2 extends AuthPluginBase
      * @param string $key
      * @return mixed
      */
-    function getFromResourceData(string $key): mixed
+    private function getFromResourceData(string $key): mixed
     {
         $value = '';
         if (empty($this->resourceData[$key])) {
@@ -633,5 +693,40 @@ class AuthOAuth2 extends AuthPluginBase
                 'read' => false,
             ]
         ]);
+    }
+
+    /**
+     * Set the roles using current settings
+     * @param integer $userId
+     */
+    private function setRolesToUser($userId)
+    {
+        $rolesKey = $this->getGlobalSetting('roles_key', '');
+        if (!empty($rolesKey)) {
+            $aRoles = $this->getFromResourceData($rolesKey);
+            if (!empty($aRoles)) {
+                $resetPermssion = false;
+                $aRoles = (array) $aRoles;
+                foreach ($aRoles as $role) {
+                    $rolesRemovetext = $this->getGlobalSetting('roles_removetext', '');
+                    $role = str_replace($rolesRemovetext, '', $role);
+                    $criteria = new CDbCriteria();
+                    if ($this->getGlobalSetting('roles_insensitive', false)) {
+                        $criteria->compare('LOWER(name)', strtolower($role), true);
+                    } else {
+                        $criteria->compare('name', $role, true);
+                    }
+                    $oRole = Permissiontemplates::model()->find($criteria);
+                    if ($oRole) {
+                        $resetPermssion = true;
+                        Permissiontemplates::model()->applyToUser($userId, $oRole->ptid);
+                    }
+                }
+                // Set the auth_oauth global permission to 0 (not used if have roles, but keep it at 0 for roles_needed
+                if ($resetPermssion) {
+                    Permission::model()->setGlobalPermission($user->uid, 'auth_oauth', []);
+                }
+            }
+        }
     }
 }

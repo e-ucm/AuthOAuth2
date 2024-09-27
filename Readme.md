@@ -43,6 +43,8 @@ select OAuth2 as authentication method manually.
 Below the _Use as default login_ checkbox a URL is shown with which the default login form can always be accessed
 to login using the internal database even when automatic redirection is enabled.
 
+With _Key for roles in user detail_ you can get the roles at creation on a specific attribute. This attribute can be an array for multiple roles.
+
 You can find [a configuration example for Azure Active Directory here](docs/examples/AzureAD.md).  
 You can find [a configuration example for Keycloak here](docs/examples/Keycloak.md).
 
