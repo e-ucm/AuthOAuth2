@@ -1,6 +1,6 @@
 <?php
 
-/* @version 1.4.1 */
+/* @version 1.4.3 */
 
 require_once(__DIR__ . '/vendor/autoload.php');
 use League\OAuth2\Client\Provider\GenericProvider;
@@ -421,7 +421,7 @@ class AuthOAuth2 extends AuthPluginBase
                 return;
             }
         }
-        if ($this->getGlobalSetting('roles_needed', false) && $this->getGlobalSetting('roles_key', '')) {
+        if ($this->getGlobalSetting('roles_needed', false) && $rolesKey = $this->getGlobalSetting('roles_key', '')) {
             $aRoles = $this->getFromResourceData($rolesKey);
             if (empty($aRoles)) {
                 if ($this->getGlobalSetting('is_default')) {
@@ -706,7 +706,7 @@ class AuthOAuth2 extends AuthPluginBase
         if (!empty($rolesKey)) {
             $aRoles = $this->getFromResourceData($rolesKey);
             if (!empty($aRoles)) {
-                $resetPermssion = false;
+                $resetPermission = false;
                 $aRoles = (array) $aRoles;
                 foreach ($aRoles as $role) {
                     $rolesRemovetext = $this->getGlobalSetting('roles_removetext', '');
@@ -719,12 +719,12 @@ class AuthOAuth2 extends AuthPluginBase
                     }
                     $oRole = Permissiontemplates::model()->find($criteria);
                     if ($oRole) {
-                        $resetPermssion = true;
+                        $resetPermission = true;
                         Permissiontemplates::model()->applyToUser($userId, $oRole->ptid);
                     }
                 }
                 // Set the auth_oauth global permission to 0 (not used if have roles, but keep it at 0 for roles_needed
-                if ($resetPermssion) {
+                if ($resetPermission) {
                     Permission::model()->deleteAllByAttributes(['uid' => $userId, 'permission' => 'auth_oauth']);
                     Permission::model()->setGlobalPermission($userId, 'auth_oauth', []);
                 }
