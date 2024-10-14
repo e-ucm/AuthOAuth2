@@ -1,6 +1,6 @@
 <?php
 
-/* @version 1.4.0 */
+/* @version 1.4.1 */
 
 require_once(__DIR__ . '/vendor/autoload.php');
 use League\OAuth2\Client\Provider\GenericProvider;
@@ -460,6 +460,7 @@ class AuthOAuth2 extends AuthPluginBase
                 Permission::setPermissions($user->uid, 0, 'global', $defaultPermissions, true);
             }
             /* Add auth_oauth2 permission */
+            Permission::model()->deleteAllByAttributes(['uid' => $user->uid, 'permission' => 'auth_oauth']);
             Permission::model()->setGlobalPermission($user->uid, 'auth_oauth');
             /* Add optional roles */
             if (method_exists(Permissiontemplates::class, 'applyToUser')) {
@@ -724,7 +725,8 @@ class AuthOAuth2 extends AuthPluginBase
                 }
                 // Set the auth_oauth global permission to 0 (not used if have roles, but keep it at 0 for roles_needed
                 if ($resetPermssion) {
-                    Permission::model()->setGlobalPermission($user->uid, 'auth_oauth', []);
+                    Permission::model()->deleteAllByAttributes(['uid' => $userId, 'permission' => 'auth_oauth']);
+                    Permission::model()->setGlobalPermission($userId, 'auth_oauth', []);
                 }
             }
         }
