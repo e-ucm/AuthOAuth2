@@ -1,6 +1,6 @@
 <?php
 
-/* @version 1.4.3 */
+/* @version 1.4.4 */
 
 require_once(__DIR__ . '/vendor/autoload.php');
 use League\OAuth2\Client\Provider\GenericProvider;
@@ -459,9 +459,8 @@ class AuthOAuth2 extends AuthPluginBase
             if (!empty($defaultPermissions)) {
                 Permission::setPermissions($user->uid, 0, 'global', $defaultPermissions, true);
             }
-            /* Add auth_oauth2 permission */
-            Permission::model()->deleteAllByAttributes(['uid' => $user->uid, 'permission' => 'auth_oauth']);
-            Permission::model()->setGlobalPermission($user->uid, 'auth_oauth');
+            /* Add auth_oauth2 permission if not already exist*/
+            self::setOauthPermission($user->uid, true);
             /* Add optional roles */
             if (method_exists(Permissiontemplates::class, 'applyToUser')) {
                 $autocreateRoles = $this->getGlobalSetting('autocreate_roles');
@@ -725,10 +724,39 @@ class AuthOAuth2 extends AuthPluginBase
                 }
                 // Set the auth_oauth global permission to 0 (not used if have roles, but keep it at 0 for roles_needed
                 if ($resetPermission) {
-                    Permission::model()->deleteAllByAttributes(['uid' => $userId, 'permission' => 'auth_oauth']);
-                    Permission::model()->setGlobalPermission($userId, 'auth_oauth', []);
+                    self::setOauthPermission($userId, false);
                 }
             }
         }
+    }
+    /**
+     * Set Oauth permission  : use to create permission with 0 ar read_p or update if exist.
+     * @param integer $userId
+     * @param boolean $read permission
+     */
+    private static function setOauthPermission($userId, $allow = true)
+    {
+        $oPermission = Permission::model()->find(
+            "uid= :uid AND entity = :entity AND permission = :permission",
+            array(
+                'uid' => $userId,
+                'entity' => 'global',
+                'permission' => 'auth_oauth',
+            )
+        );
+        if (!$oPermission) {
+            $oPermission = new Permission();
+            $oPermission->uid = $userId;
+            $oPermission->entity = 'global';
+            $oPermission->entity_id = 0;
+            $oPermission->permission = 'auth_oauth';
+        }
+        $oPermission->create_p = 0;
+        $oPermission->read_p = intval(boolval($allow));
+        $oPermission->update_p = 0;
+        $oPermission->delete_p = 0;
+        $oPermission->import_p = 0;
+        $oPermission->export_p = 0;
+        $oPermission->save();
     }
 }
