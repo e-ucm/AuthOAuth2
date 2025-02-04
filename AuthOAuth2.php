@@ -168,7 +168,7 @@ class AuthOAuth2 extends AuthPluginBase
                 ),
                 'default' => $this->getGlobalSetting('is_default', false),
                 'htmlOptions' => [
-                    'readonly' => in_array('is_default', $fixedPluginSettings)
+                    'disabled' => in_array('is_default', $fixedPluginSettings)
                 ]
             ],
             'autocreate_users' => [
@@ -177,7 +177,7 @@ class AuthOAuth2 extends AuthPluginBase
                 'help' => $this->gT('If enabled users that do not exist yet will be created in LimeSurvey after successfull login.'),
                 'default' => $this->getGlobalSetting('autocreate_users', false),
                 'htmlOptions' => [
-                    'readonly' => in_array('autocreate_users', $fixedPluginSettings)
+                    'disabled' => in_array('autocreate_users', $fixedPluginSettings)
                 ]
             ],
             'introduction_text' => [
@@ -262,7 +262,7 @@ class AuthOAuth2 extends AuthPluginBase
                 'help' => $this->gT('Do an insensitive comparaison before search the roles.'),
                 'default' => $this->getGlobalSetting('roles_insensitive', ''),
                 'htmlOptions' => [
-                    'readonly' => in_array('roles_insensitive', $fixedPluginSettings)
+                    'disabled' => in_array('roles_insensitive', $fixedPluginSettings)
                 ]
             ];
         }
@@ -280,7 +280,7 @@ class AuthOAuth2 extends AuthPluginBase
                 self::getDefaultPermission()
             ),
             'htmlOptions' => [
-                'readonly' => in_array('autocreate_permissions', $fixedPluginSettings)
+                'disabled' => in_array('autocreate_permissions', $fixedPluginSettings)
             ],
         ];
         /* Get current */
