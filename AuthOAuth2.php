@@ -198,6 +198,24 @@ class AuthOAuth2 extends AuthPluginBase
                     'readonly' => in_array('button_text', $fixedPluginSettings)
                 ]
             ],
+            'key_separator' => [
+                'type' => 'string',
+                'label' => $this->gT('Separate key for user detail'),
+                'help' => $this->gT('Separate key to get to the user details. Split key by dot notation by default.'),
+                'default' => $this->getGlobalSetting('key_separator', '.'),
+                'htmlOptions' => [
+                    'readonly' => in_array('key_separator', $fixedPluginSettings)
+                ]
+            ],
+            'debug' => [
+                'type' => 'boolean',
+                'label' => $this->gT('Activate debugger'),
+                'help' => $this->gT('Activate debugger'),
+                'default' => $this->getGlobalSetting('debug', false),
+                'htmlOptions' => [
+                    'readonly' => in_array('debug', $fixedPluginSettings)
+                ]
+            ]
         ];
 
         if (method_exists(Permissiontemplates::class, 'applyToUser')) {
@@ -575,11 +593,21 @@ class AuthOAuth2 extends AuthPluginBase
      */
     private function getFromResourceData(string $key): mixed
     {
-        $value = '';
-        if (empty($this->resourceData[$key])) {
-            throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
-        } else {
-            $value = $this->resourceData[$key];
+        $keySeparator = $this->getGlobalSetting('key_separator', '.');
+        $keys = explode($keySeparator, $key); // Split key by dot notation
+        $value = $this->resourceData;
+
+        $debug = (boolean)$this->getGlobalSetting('debug', false);
+        if($debug) {
+            error_log("Data : " . json_encode($value));
+            error_log("Keys : " . $keys);
+        }
+        
+        foreach ($keys as $part) {
+            if (!is_array($value) || !array_key_exists($part, $value)) {
+                throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
+            }
+            $value = $value[$part]; // Move deeper into the array
         }
         return $value;
     }
