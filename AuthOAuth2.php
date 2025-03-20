@@ -603,14 +603,17 @@ class AuthOAuth2 extends AuthPluginBase
             error_log(json_encode(Yii::app()->session));
         }
         $accessToken = Yii::app()->session['access_token'];
-        $refreshToken = $accessToken->getRefreshToken();
-        
-        if (!$accessToken || !$refreshToken) {
+        if (!$accessToken) {
             return;
-        } else {
-            if($debug) {
-                error_log("AccessToken and RefreshToken presents.");
-            }
+        }
+
+        $refreshToken = $accessToken->getRefreshToken();
+        if (!$refreshToken) {
+            return;
+        }
+
+        if($debug) {
+            error_log("AccessToken and RefreshToken presents.");
         }
 
         $postData = http_build_query([
