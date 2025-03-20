@@ -26,6 +26,7 @@ class AuthOAuth2 extends AuthPluginBase
     public function init(): void
     {
         $this->subscribe('beforeLogin');
+        $this->subscribe('beforeLogout');
         $this->subscribe('newUserSession');
         $this->subscribe('newLoginForm');
         $this->subscribe('getGlobalBasePermissions');
@@ -113,6 +114,14 @@ class AuthOAuth2 extends AuthPluginBase
                 'default' => $this->getGlobalSetting('resource_owner_details_url', ''),
                 'htmlOptions' => [
                     'readonly' => in_array('resource_owner_details_url', $fixedPluginSettings)
+                ]
+            ],
+            'logout_url' => [
+                'type' => 'string',
+                'label' => $this->gT('Logout URL'),
+                'default' => $this->getGlobalSetting('logout_url', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('logout_url', $fixedPluginSettings)
                 ]
             ],
             'identifier_attribute' => [
@@ -361,6 +370,8 @@ class AuthOAuth2 extends AuthPluginBase
      */
     public function beforeLogin()
     {
+        $debug = (boolean)$this->getGlobalSetting('debug', false);
+        
         $request = $this->api->getRequest();
         if ($error = $request->getParam('error')) {
             throw new CHttpException(401, $request->getParam('error_description', $error));
@@ -405,9 +416,13 @@ class AuthOAuth2 extends AuthPluginBase
 
         try {
             $accessToken = $provider->getAccessToken('authorization_code', ['code' => $code]);
+            if($debug) {
+                error_log("AccessToken : " . $accessToken);
+            }
         } catch (Throwable $exception) {
             throw new CHttpException(400, $this->gT('Failed to retrieve access token'));
         }
+        Yii::app()->session['access_token']=$accessToken;
 
         try {
             $resourceOwner = $provider->getResourceOwner($accessToken);
@@ -569,6 +584,63 @@ class AuthOAuth2 extends AuthPluginBase
             $this->setUsername($user->users_name);
             $this->setAuthSuccess($user);
         }
+    }
+
+    /**
+     * @throws CHttpException
+     */
+    public function beforeLogout(): void
+    {
+        $logoutUrl = $this->getGlobalSetting("logout_url");
+        $clientId = $this->getGlobalSetting("client_id");
+        $clientSecret = $this->getGlobalSetting("client_secret");
+        
+        $debug = (boolean)$this->getGlobalSetting('debug', false);
+
+        if($debug) {
+            error_log("LogoutUrl : " . $logoutUrl);
+            error_log("clientid : " . $clientId);
+            error_log(json_encode(Yii::app()->session));
+        }
+        $accessToken = Yii::app()->session['access_token'];
+        $refreshToken = $accessToken->getRefreshToken();
+        
+        if (!$accessToken || !$refreshToken) {
+            return;
+        } else {
+            if($debug) {
+                error_log("AccessToken and RefreshToken presents.");
+            }
+        }
+
+        $postData = http_build_query([
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
+            'refresh_token' => $refreshToken,
+        ]);
+        
+        $headers = [
+            'Authorization: Bearer ' . $accessToken,
+            'Content-Type: application/x-www-form-urlencoded',
+        ];
+        
+        $ch = curl_init($logoutUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        // Optionally log the response or check for errors 
+        if (intval($httpCode / 100) !== 2) { // Ok for 200 201 204 etc
+            error_log("Logout request failed: HTTP $httpCode - $response");
+        }
+        
+        // Clear session data after logout
+        Yii::app()->session->clear();
+        Yii::app()->session->destroy();     
     }
 
     public function getGlobalBasePermissions(): void
