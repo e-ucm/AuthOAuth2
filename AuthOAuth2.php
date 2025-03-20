@@ -208,7 +208,7 @@ class AuthOAuth2 extends AuthPluginBase
                 ]
             ],
             'debug' => [
-                'type' => 'boolean',
+                'type' => 'checkbox',
                 'label' => $this->gT('Activate debugger'),
                 'help' => $this->gT('Activate debugger'),
                 'default' => $this->getGlobalSetting('debug', false),
@@ -257,12 +257,30 @@ class AuthOAuth2 extends AuthPluginBase
                 ]
             ];
             $this->settings['roles_needed'] = [
-                'type' => 'string',
+                'type' => 'checkbox',
                 'label' => $this->gT('Need a minimum one role to allow log in or create user.'),
-                'help' => $this->gT('If user didn\'t have any roles : disallow log in. Roles name are not checked with existing role.'),
-                'default' => $this->getGlobalSetting('roles_needed', ''),
+                'help' => $this->gT('If user didn\'t have any roles : disallow log in.'),
+                'default' => $this->getGlobalSetting('roles_needed', false),
                 'htmlOptions' => [
                     'disabled' => in_array('roles_needed', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_to_check'] = [
+                'type' => 'string',
+                'label' => $this->gT('Separated Roles Name List'),
+                'help' => $this->gT('Separated Roles Name List to be compared with user role list. If one is present, allow login. If user didn\'t have at least one of the role : disallow log in. Default separator comma'),
+                'default' => $this->getGlobalSetting('roles_to_check', ''),
+                'htmlOptions' => [
+                    'disabled' => in_array('roles_to_check', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_to_check_separator'] = [
+                'type' => 'string',
+                'label' => $this->gT('Role name list separator'),
+                'help' => $this->gT('Role name list separator. Default to comma'),
+                'default' => $this->getGlobalSetting('roles_to_check_separator', ','),
+                'htmlOptions' => [
+                    'disabled' => in_array('roles_to_check_separator', $fixedPluginSettings)
                 ]
             ];
             $this->settings['roles_removetext'] = [
@@ -439,12 +457,42 @@ class AuthOAuth2 extends AuthPluginBase
                 return;
             }
         }
-        if ($this->getGlobalSetting('roles_needed', false) && $rolesKey = $this->getGlobalSetting('roles_key', '')) {
+        if ($this->getGlobalSetting('roles_needed', false)  && $rolesKey = $this->getGlobalSetting('roles_key', '')) {
             $aRoles = $this->getFromResourceData($rolesKey);
+            $debug = (boolean)$this->getGlobalSetting('debug', false);
+            if($debug) {
+                error_log("Data : " . json_encode($aRoles));
+            }
             if (empty($aRoles)) {
                 if ($this->getGlobalSetting('is_default')) {
                     /* No way to connect : throw a 403 error (avoid looping) */
                     throw new CHttpException(403, gT('Incorrect username and/or password!'));
+                } else {
+                    $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
+                    return;
+                }
+            }
+        }
+        if ($this->getGlobalSetting('roles_to_check', '') != '' && $rolesKey = $this->getGlobalSetting('roles_key', '')) {
+            $aRoles = $this->getFromResourceData($rolesKey);
+            $rolesToCheck=explode($this->getGlobalSetting('roles_to_check_separator', ','),$this->getGlobalSetting('roles_to_check', ''));
+            
+            $debug = (boolean)$this->getGlobalSetting('debug', false);
+            if($debug) {
+                error_log("Data : " . json_encode($aRoles));
+                error_log("rolesToCheck : " . json_encode($rolesToCheck));
+            }
+            
+            $incorrectRole=true;
+            foreach ($rolesToCheck as $role) {
+                if(in_array($role, $aRoles)) {
+                    $incorrectRole=false;
+                }
+            }
+            if ($incorrectRole) {
+                if ($this->getGlobalSetting('is_default')) {
+                    /* No way to connect : throw a 403 error (avoid looping) */
+                    throw new CHttpException(403, gT('Incorrect role!'));
                 } else {
                     $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
                     return;
@@ -600,7 +648,7 @@ class AuthOAuth2 extends AuthPluginBase
         $debug = (boolean)$this->getGlobalSetting('debug', false);
         if($debug) {
             error_log("Data : " . json_encode($value));
-            error_log("Keys : " . $keys);
+            error_log("Keys : " . json_encode($keys));
         }
         
         foreach ($keys as $part) {
@@ -608,6 +656,9 @@ class AuthOAuth2 extends AuthPluginBase
                 throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
             }
             $value = $value[$part]; // Move deeper into the array
+        }
+        if($debug) {
+            error_log("Value : " . json_encode($value));
         }
         return $value;
     }
