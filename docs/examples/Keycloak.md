@@ -7,14 +7,14 @@ Using this plugin Keycloak can be used to login into LimeSurvey.
 Create a new client with secret on Keycloak  
 The plugin configuration so far should look like this:
 
-| Option           | Value                                                                |
-|------------------|----------------------------------------------------------------------|
-| Client ID        | limesurvey                                                           |
-| Client Secret    | your_beloved_secret                                |
-| Authorize URL    | https://auth.ulysseus.eu/realms/master/protocol/openid-connect/auth  |
-| Scopes           | email, profile                                                       |
-| Access Token URL | https://auth.ulysseus.eu/realms/master/protocol/openid-connect/token |
-| Access Token URL | https://auth.ulysseus.eu/realms/master/protocol/openid-connect/token |
+| Option           | Value                                                                   |
+|------------------|-------------------------------------------------------------------------|
+| Client ID        | limesurvey                                                              | 
+| Client Secret    | your_beloved_secret                                                     |
+| Authorize URL    | https://auth.ulysseus.eu/realms/master/protocol/openid-connect/auth     |
+| Scopes           | email, profile                                                          |
+| Access Token URL | https://auth.ulysseus.eu/realms/master/protocol/openid-connect/token    |
+| Logout URL       | https://auth.ulysseus.eu/realms/master/protocol/openid-connect/logout   |
 
 ## Configure User Details
 
