@@ -68,9 +68,8 @@ mkdir "$SCRIPT_DIR/builds-$BUILD_VERSION"
 
 pushd "$SCRIPT_DIR"
 composer install
+zip -r $SCRIPT_DIR/builds-$BUILD_VERSION/$PLUGIN_NAME-$BUILD_VERSION.zip ./ -x "*.git*" "*build.sh*" "*builds-*" "*docs*" "*.md*"
 popd
-
-zip -r $SCRIPT_DIR/builds-$BUILD_VERSION/$PLUGIN_NAME-$BUILD_VERSION.zip $SCRIPT_DIR/ -x "*.git*" "*build.sh*" "*builds-*" "*docs*" "*Readme.md*"
 
 pushd "$SCRIPT_DIR/builds-$BUILD_VERSION"
 sha256sum ./* > "$SCRIPT_DIR/builds-$BUILD_VERSION/SHA256SUMS"
