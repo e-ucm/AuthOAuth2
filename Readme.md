@@ -9,7 +9,7 @@ _authorization code grant_ flow and supports automatic creation of new users.
 
 # Installation
 - go to [releases](https://github.com/e-ucm/AuthOAuth2/releases) and download the latest release Zip archive
-- for LimeSurvey 5.x and up: upload the Zip archive in the plugin manager
+- for LimeSurvey 5.x and above: upload the Zip archive in the plugin manager
 - for LimeSurvey 3.x: extract the Zip archive and place the contents in `<limesurvey_root>/plugins/AuthOAuth2/`
 - configure the plugin in the plugin manager
 - activate the plugin in the plugin manager

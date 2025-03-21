@@ -465,9 +465,11 @@ class AuthOAuth2 extends AuthPluginBase
 
         if (!$user && !$this->getGlobalSetting('autocreate_users')) {
             if ($this->getGlobalSetting('is_default')) {
+                $this->beforeLogout();
                 /* No way to connect : throw a 403 error (avoid looping) */
                 throw new CHttpException(403, gT('Incorrect username and/or password!'));
             } else {
+                $this->beforeLogout();
                 $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
                 return;
             }
@@ -480,9 +482,11 @@ class AuthOAuth2 extends AuthPluginBase
             }
             if (empty($aRoles)) {
                 if ($this->getGlobalSetting('is_default')) {
+                    $this->beforeLogout();
                     /* No way to connect : throw a 403 error (avoid looping) */
                     throw new CHttpException(403, gT('Incorrect username and/or password!'));
                 } else {
+                    $this->beforeLogout();
                     $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
                     return;
                 }
@@ -506,9 +510,11 @@ class AuthOAuth2 extends AuthPluginBase
             }
             if ($incorrectRole) {
                 if ($this->getGlobalSetting('is_default')) {
+                    $this->beforeLogout();
                     /* No way to connect : throw a 403 error (avoid looping) */
                     throw new CHttpException(403, gT('Incorrect role!'));
                 } else {
+                    $this->beforeLogout();
                     $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
                     return;
                 }
@@ -573,9 +579,11 @@ class AuthOAuth2 extends AuthPluginBase
                     Permission::model()->setGlobalPermission($user->uid, 'auth_oauth');
                 } else {
                     if ($this->getGlobalSetting('is_default')) {
+                        $this->beforeLogout();
                         /* No way to connect : throw a 403 error (avoid looping) */
                         throw new CHttpException(403, gT('Incorrect username and/or password!'));
                     } else {
+                        $this->beforeLogout();
                         $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
                         return;
                     }
