@@ -194,7 +194,7 @@ class AuthOAuth2 extends AuthPluginBase
                 'label' => $this->gT('Introduction to the OAuth login button.'),
                 'default' => $this->getGlobalSetting('introduction_text', ''),
                 'htmlOptions' => [
-                    'placeholder' => $this->gT('Login with Oauth2'),
+                    'placeholder' => $this->gT('Login with OAuth2'),
                     'readonly' => in_array('introduction_text', $fixedPluginSettings)
                 ]
             ],
@@ -346,11 +346,11 @@ class AuthOAuth2 extends AuthPluginBase
     public function newLoginForm()
     {
         $oEvent = $this->getEvent();
-        $introductionText = viewHelper::purified(trim($this->getGlobalSetting('introduction_text')));
+        $introductionText = viewHelper::purified(trim($this->getGlobalSetting('introduction_text','')));
         if (empty($introductionText)) {
             $introductionText = $this->gT("Login with Oauth2");
         }
-        $buttonText = viewHelper::purified(trim($this->getGlobalSetting('button_text')));
+        $buttonText = viewHelper::purified(trim($this->getGlobalSetting('button_text', '')));
         if (empty($buttonText)) {
             $buttonText = $this->gT("Login");
         }
