@@ -4,7 +4,7 @@
         <name>AuthOAuth2</name>
         <type>plugin</type>
         <creationDate>2021-12-09</creationDate>
-        <lastUpdate>2025-03-21</lastUpdate>
+        <lastUpdate>2025-03-25</lastUpdate>
         <author>Roman Anasal,  Ulysseus European University , Denis Chenu, Julio Santilario Berthilier, eUCM Team</author>
         <authorUrl>https://github.com/e-ucm/AuthOAuth2</authorUrl>
         <version>1.5.0</version>
