@@ -216,6 +216,33 @@ class AuthOAuth2 extends AuthPluginBase
                     'readonly' => in_array('key_separator', $fixedPluginSettings)
                 ]
             ],
+            'word_separator' => [
+                'type' => 'string',
+                'label' => $this->gT('Separate word key for user detail'),
+                'help' => $this->gT('Separate word key to get to the user details. Split word key by plus notation by default.'),
+                'default' => $this->getGlobalSetting('word_separator', '+'),
+                'htmlOptions' => [
+                    'readonly' => in_array('word_separator', $fixedPluginSettings)
+                ]
+            ],
+            'display_separator_username' => [
+                'type' => 'string',
+                'label' => $this->gT('Display separation if using for username in user details'),
+                'help' => $this->gT('Separate word key for username. Split by dot notation by default.'),
+                'default' => $this->getGlobalSetting('display_separator_username', '.'),
+                'htmlOptions' => [
+                    'readonly' => in_array('display_separator_username', $fixedPluginSettings)
+                ]
+            ],
+            'display_separator_display_name' => [
+                'type' => 'string',
+                'label' => $this->gT('Display separation if using for display name in user details'),
+                'help' => $this->gT('Separate word key for display name. Split by space notation by default.'),
+                'default' => $this->getGlobalSetting('display_separator_display_name', ' '),
+                'htmlOptions' => [
+                    'readonly' => in_array('display_separator_display_name', $fixedPluginSettings)
+                ]
+            ],
             'debug' => [
                 'type' => 'checkbox',
                 'label' => $this->gT('Activate debugger'),
@@ -294,7 +321,7 @@ class AuthOAuth2 extends AuthPluginBase
             ];
             $this->settings['roles_removetext'] = [
                 'type' => 'string',
-                'label' => $this->gT('Allow you to remove specific string on the roles returnned'),
+                'label' => $this->gT('Allow you to remove specific string on the roles returned'),
                 'help' => $this->gT('This string was removed to the roles returned before comparaison.'),
                 'default' => $this->getGlobalSetting('roles_removetext', ''),
                 'htmlOptions' => [
@@ -433,10 +460,12 @@ class AuthOAuth2 extends AuthPluginBase
 
         if ($this->getGlobalSetting('identifier_attribute') === 'email') {
             $identifierKey = $this->getGlobalSetting('email_key');
+            $userIdentifier = $this->getFromResourceData($identifierKey);
         } else {
             $identifierKey = $this->getGlobalSetting('username_key');
+            $identifierSeparator = $this->getGlobalSetting('display_separator_username', '.');
+            $userIdentifier = $this->getTemplatedKey($identifierKey, $identifierSeparator);
         }
-        $userIdentifier = $this->getTemplatedKey($identifierKey);
 
         if (empty($userIdentifier)) {
             throw new CHttpException(400, 'User identifier not found or empty');
@@ -525,9 +554,11 @@ class AuthOAuth2 extends AuthPluginBase
             $this->unsubscribe('getGlobalBasePermissions');
 
             $usernameKey = $this->getGlobalSetting('username_key');
-            $username = $this->getTemplatedKey($usernameKey);
+            $usernameSeparator = $this->getGlobalSetting('display_separator_username', '.');
+            $username = $this->getTemplatedKey($usernameKey, $usernameSeparator);
             $displayNameKey = $this->getGlobalSetting('display_name_key');
-            $displayName = $this->getTemplatedKey($displayNameKey, ' ');
+            $displayNameSeparator = $this->getGlobalSetting('display_separator_displayname', ' ');
+            $displayName = $this->getTemplatedKey($displayNameKey, $displayNameSeparator);
             $emailKey = $this->getGlobalSetting('email_key');
             $email = $this->getFromResourceData($emailKey);
 
@@ -678,39 +709,16 @@ class AuthOAuth2 extends AuthPluginBase
     public function getTemplatedKey(string $iKey, string $iSeparator = '.'): string
     {
         $rValue = '';
-        if (str_contains($iKey, '.') || str_contains($iKey, '+')) {
+        $keySeparator = $this->getGlobalSetting('key_separator', '.');
+        $wordSeparator = $this->getGlobalSetting('word_separator', '+');
+        if (str_contains($iKey, $keySeparator) || str_contains($iKey, $wordSeparator)) {
             $newUsernameKey = '';
             $sub_values = array_map(
                 function ($sub_key) {
-                    $sub_key_modified = $sub_key;
-                    $value = '';
-                    if (str_contains($sub_key, '.')) {
-                        $sub_key_as_table = explode('.', $sub_key);
-                        $sub_key_modified = $sub_key_as_table[0];
-                        $value = $this->getFromResourceData($sub_key_modified);
-                        $modifier = $sub_key_as_table[1];
-                        if ($modifier === 'first_letter') {
-                            $value = join('', array_map(
-                                function ($spaceSeparatedElements) {
-                                    return strtolower($spaceSeparatedElements[0]);
-                                },
-                                explode(' ', $value)
-                            ));
-                        } elseif ($modifier === 'capitalize') {
-                            $value = ucfirst(strtolower($value));
-                        } elseif ($modifier === 'upper_case') {
-                            $value = strtoupper($value);
-                        } elseif ($modifier === 'lower_case') {
-                            $value = strtolower($value);
-                        }
-                    } else {
-                        $value = $this->getFromResourceData($sub_key_modified);
-                    }
-                    return $value;
+                    return $this->getFromResourceData($sub_key, true);
                 },
-                explode("+", $iKey)
+                explode($wordSeparator, $iKey)
             );
-
             $rValue = join($iSeparator, $sub_values);
         } else {
             $rValue = $this->getFromResourceData($iKey);
@@ -720,9 +728,10 @@ class AuthOAuth2 extends AuthPluginBase
 
     /**
      * @param string $key
+     * @param bool $modifier
      * @return mixed
      */
-    private function getFromResourceData(string $key): mixed
+    private function getFromResourceData(string $key, bool $modifier=false): mixed
     {
         $keySeparator = $this->getGlobalSetting('key_separator', '.');
         $keys = explode($keySeparator, $key); // Split key by dot notation
@@ -735,10 +744,29 @@ class AuthOAuth2 extends AuthPluginBase
         }
         
         foreach ($keys as $part) {
-            if (!is_array($value) || !array_key_exists($part, $value)) {
+            if (!is_array($value)) {
                 throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
             }
-            $value = $value[$part]; // Move deeper into the array
+            if(array_key_exists($part, $value)) {
+                $value = $value[$part]; // Move deeper into the array
+            } else {
+                if($modifier) {
+                    // Apply modifications if a known modifier exists
+                    if ($part === 'first_letter') {
+                        $value = join('', array_map(fn($word) => strtolower($word[0]), explode(' ', $value)));
+                    } elseif ($part === 'capitalize') {
+                        $value = ucfirst(strtolower($value));
+                    } elseif ($part === 'upper_case') {
+                        $value = strtoupper($value);
+                    } elseif ($part === 'lower_case') {
+                        $value = strtolower($value);
+                    } else {
+                        throw new CHttpException(401, $this->gT('User data or modifier is missing required attributes to create new user:') . $key);
+                    }
+                } else {
+                    throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
+                }
+            }
         }
         if($debug) {
             error_log("Value : " . json_encode($value));
