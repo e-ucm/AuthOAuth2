@@ -745,11 +745,6 @@ class AuthOAuth2 extends AuthPluginBase
         
         foreach ($keys as $part) {
             if (!is_array($value)) {
-                throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
-            }
-            if(array_key_exists($part, $value)) {
-                $value = $value[$part]; // Move deeper into the array
-            } else {
                 if($modifier) {
                     // Apply modifications if a known modifier exists
                     if ($part === 'first_letter') {
@@ -763,6 +758,12 @@ class AuthOAuth2 extends AuthPluginBase
                     } else {
                         throw new CHttpException(401, $this->gT('User data or modifier is missing required attributes to create new user:') . $key);
                     }
+                } else {
+                    throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
+                }
+            } else {
+                if (array_key_exists($part, $value)) {
+                    $value = $value[$part]; // Move deeper into the array
                 } else {
                     throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
                 }
