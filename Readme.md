@@ -1,20 +1,25 @@
 # What is this
 
 This is an authentication plugin for [LimeSurvey](https://github.com/LimeSurvey/LimeSurvey)
-enabling Single Sign-On with any identity provider using the OAuth2 protocol.
+enabling Single Sign-On with any identity provider using the OAuth2 protocol forked from [SondagesPro/limesurvey-oauth2](https://github.com/SondagesPro/limesurvey-oauth2.git).
 
 It uses the [`league/oauth2-client` library](https://github.com/thephpleague/oauth2-client)
 and can be configured for any identity provider that supports OAuth2 with the
 _authorization code grant_ flow and supports automatic creation of new users.
 
 # Installation
+- go to [releases](https://github.com/e-ucm/AuthOAuth2/releases) and download the latest release Zip archive
+- for LimeSurvey 5.x and above: upload the Zip archive in the plugin manager
+- for LimeSurvey 3.x: extract the Zip archive and place the contents in `<limesurvey_root>/plugins/AuthOAuth2/`
+- configure the plugin in the plugin manager
+- activate the plugin in the plugin manager
 
-For the current version `git clone` [this repository](https://github.com/SondagesPro/limesurvey-oauth2.git)
+To test the latest development version `git clone` [this repository](https://github.com/e-ucm/AuthOAuth2.git)
 into `<limesurvey_root>/plugins/AuthOAuth2/` and run `composer install` in it to download all dependencies.
 
 ```
 cd ./plugins/
-git clone https://github.com/SondagesPro/limesurvey-oauth2.git AuthOAuth2
+git clone https://github.com/e-ucm/AuthOAuth2.git
 cd AuthOAuth2
 composer install
 ```

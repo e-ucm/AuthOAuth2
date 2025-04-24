@@ -1,6 +1,6 @@
 <?php
 
-/* @version 1.4.4 */
+/* @version 1.5.0 */
 
 require_once(__DIR__ . '/vendor/autoload.php');
 use League\OAuth2\Client\Provider\GenericProvider;
@@ -26,6 +26,7 @@ class AuthOAuth2 extends AuthPluginBase
     public function init(): void
     {
         $this->subscribe('beforeLogin');
+        $this->subscribe('beforeLogout');
         $this->subscribe('newUserSession');
         $this->subscribe('newLoginForm');
         $this->subscribe('getGlobalBasePermissions');
@@ -115,6 +116,14 @@ class AuthOAuth2 extends AuthPluginBase
                     'readonly' => in_array('resource_owner_details_url', $fixedPluginSettings)
                 ]
             ],
+            'logout_url' => [
+                'type' => 'string',
+                'label' => $this->gT('Logout URL'),
+                'default' => $this->getGlobalSetting('logout_url', ''),
+                'htmlOptions' => [
+                    'readonly' => in_array('logout_url', $fixedPluginSettings)
+                ]
+            ],
             'identifier_attribute' => [
                 'type' => 'select',
                 'label' => $this->gT('Identifier Attribute'),
@@ -185,7 +194,7 @@ class AuthOAuth2 extends AuthPluginBase
                 'label' => $this->gT('Introduction to the OAuth login button.'),
                 'default' => $this->getGlobalSetting('introduction_text', ''),
                 'htmlOptions' => [
-                    'placeholder' => $this->gT('Login with Oauth2'),
+                    'placeholder' => $this->gT('Login with OAuth2'),
                     'readonly' => in_array('introduction_text', $fixedPluginSettings)
                 ]
             ],
@@ -198,6 +207,51 @@ class AuthOAuth2 extends AuthPluginBase
                     'readonly' => in_array('button_text', $fixedPluginSettings)
                 ]
             ],
+            'key_separator' => [
+                'type' => 'string',
+                'label' => $this->gT('Separate key for user detail'),
+                'help' => $this->gT('Separate key to get to the user details. Split key by dot notation by default.'),
+                'default' => $this->getGlobalSetting('key_separator', '.'),
+                'htmlOptions' => [
+                    'readonly' => in_array('key_separator', $fixedPluginSettings)
+                ]
+            ],
+            'word_separator' => [
+                'type' => 'string',
+                'label' => $this->gT('Separate word key for user detail'),
+                'help' => $this->gT('Separate word key to get to the user details. Split word key by plus notation by default.'),
+                'default' => $this->getGlobalSetting('word_separator', '+'),
+                'htmlOptions' => [
+                    'readonly' => in_array('word_separator', $fixedPluginSettings)
+                ]
+            ],
+            'display_separator_username' => [
+                'type' => 'string',
+                'label' => $this->gT('Display separation if using for username in user details'),
+                'help' => $this->gT('Separate word key for username. Split by dot notation by default.'),
+                'default' => $this->getGlobalSetting('display_separator_username', '.'),
+                'htmlOptions' => [
+                    'readonly' => in_array('display_separator_username', $fixedPluginSettings)
+                ]
+            ],
+            'display_separator_display_name' => [
+                'type' => 'string',
+                'label' => $this->gT('Display separation if using for display name in user details'),
+                'help' => $this->gT('Separate word key for display name. Split by space notation by default.'),
+                'default' => $this->getGlobalSetting('display_separator_display_name', ' '),
+                'htmlOptions' => [
+                    'readonly' => in_array('display_separator_display_name', $fixedPluginSettings)
+                ]
+            ],
+            'debug' => [
+                'type' => 'checkbox',
+                'label' => $this->gT('Activate debugger'),
+                'help' => $this->gT('Activate debugger'),
+                'default' => $this->getGlobalSetting('debug', false),
+                'htmlOptions' => [
+                    'readonly' => in_array('debug', $fixedPluginSettings)
+                ]
+            ]
         ];
 
         if (method_exists(Permissiontemplates::class, 'applyToUser')) {
@@ -239,17 +293,35 @@ class AuthOAuth2 extends AuthPluginBase
                 ]
             ];
             $this->settings['roles_needed'] = [
-                'type' => 'string',
+                'type' => 'checkbox',
                 'label' => $this->gT('Need a minimum one role to allow log in or create user.'),
-                'help' => $this->gT('If user didn\'t have any roles : disallow log in. Roles name are not checked with existing role.'),
-                'default' => $this->getGlobalSetting('roles_needed', ''),
+                'help' => $this->gT('If user didn\'t have any roles : disallow log in.'),
+                'default' => $this->getGlobalSetting('roles_needed', false),
                 'htmlOptions' => [
                     'disabled' => in_array('roles_needed', $fixedPluginSettings)
                 ]
             ];
+            $this->settings['roles_to_check'] = [
+                'type' => 'string',
+                'label' => $this->gT('Separated Roles Name List'),
+                'help' => $this->gT('Separated Roles Name List to be compared with user role list. If one is present, allow login. If user didn\'t have at least one of the role : disallow log in. Default separator comma'),
+                'default' => $this->getGlobalSetting('roles_to_check', ''),
+                'htmlOptions' => [
+                    'disabled' => in_array('roles_to_check', $fixedPluginSettings)
+                ]
+            ];
+            $this->settings['roles_to_check_separator'] = [
+                'type' => 'string',
+                'label' => $this->gT('Role name list separator'),
+                'help' => $this->gT('Role name list separator. Default to comma'),
+                'default' => $this->getGlobalSetting('roles_to_check_separator', ','),
+                'htmlOptions' => [
+                    'disabled' => in_array('roles_to_check_separator', $fixedPluginSettings)
+                ]
+            ];
             $this->settings['roles_removetext'] = [
                 'type' => 'string',
-                'label' => $this->gT('Allow you to remove specific string on the roles returnned'),
+                'label' => $this->gT('Allow you to remove specific string on the roles returned'),
                 'help' => $this->gT('This string was removed to the roles returned before comparaison.'),
                 'default' => $this->getGlobalSetting('roles_removetext', ''),
                 'htmlOptions' => [
@@ -301,11 +373,11 @@ class AuthOAuth2 extends AuthPluginBase
     public function newLoginForm()
     {
         $oEvent = $this->getEvent();
-        $introductionText = viewHelper::purified(trim($this->getGlobalSetting('introduction_text')));
+        $introductionText = viewHelper::purified(trim($this->getGlobalSetting('introduction_text','')));
         if (empty($introductionText)) {
             $introductionText = $this->gT("Login with Oauth2");
         }
-        $buttonText = viewHelper::purified(trim($this->getGlobalSetting('button_text')));
+        $buttonText = viewHelper::purified(trim($this->getGlobalSetting('button_text', '')));
         if (empty($buttonText)) {
             $buttonText = $this->gT("Login");
         }
@@ -325,6 +397,8 @@ class AuthOAuth2 extends AuthPluginBase
      */
     public function beforeLogin()
     {
+        $debug = (boolean)$this->getGlobalSetting('debug', false);
+        
         $request = $this->api->getRequest();
         if ($error = $request->getParam('error')) {
             throw new CHttpException(401, $request->getParam('error_description', $error));
@@ -369,9 +443,13 @@ class AuthOAuth2 extends AuthPluginBase
 
         try {
             $accessToken = $provider->getAccessToken('authorization_code', ['code' => $code]);
+            if($debug) {
+                error_log("AccessToken : " . $accessToken);
+            }
         } catch (Throwable $exception) {
             throw new CHttpException(400, $this->gT('Failed to retrieve access token'));
         }
+        Yii::app()->session['access_token']=$accessToken;
 
         try {
             $resourceOwner = $provider->getResourceOwner($accessToken);
@@ -382,10 +460,12 @@ class AuthOAuth2 extends AuthPluginBase
 
         if ($this->getGlobalSetting('identifier_attribute') === 'email') {
             $identifierKey = $this->getGlobalSetting('email_key');
+            $userIdentifier = $this->getFromResourceData($identifierKey);
         } else {
             $identifierKey = $this->getGlobalSetting('username_key');
+            $identifierSeparator = $this->getGlobalSetting('display_separator_username', '.');
+            $userIdentifier = $this->getTemplatedKey($identifierKey, $identifierSeparator);
         }
-        $userIdentifier = $this->getTemplatedKey($identifierKey);
 
         if (empty($userIdentifier)) {
             throw new CHttpException(400, 'User identifier not found or empty');
@@ -414,20 +494,56 @@ class AuthOAuth2 extends AuthPluginBase
 
         if (!$user && !$this->getGlobalSetting('autocreate_users')) {
             if ($this->getGlobalSetting('is_default')) {
+                $this->beforeLogout();
                 /* No way to connect : throw a 403 error (avoid looping) */
                 throw new CHttpException(403, gT('Incorrect username and/or password!'));
             } else {
+                $this->beforeLogout();
                 $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
                 return;
             }
         }
-        if ($this->getGlobalSetting('roles_needed', false) && $rolesKey = $this->getGlobalSetting('roles_key', '')) {
+        if ($this->getGlobalSetting('roles_needed', false)  && $rolesKey = $this->getGlobalSetting('roles_key', '')) {
             $aRoles = $this->getFromResourceData($rolesKey);
+            $debug = (boolean)$this->getGlobalSetting('debug', false);
+            if($debug) {
+                error_log("Data : " . json_encode($aRoles));
+            }
             if (empty($aRoles)) {
                 if ($this->getGlobalSetting('is_default')) {
+                    $this->beforeLogout();
                     /* No way to connect : throw a 403 error (avoid looping) */
                     throw new CHttpException(403, gT('Incorrect username and/or password!'));
                 } else {
+                    $this->beforeLogout();
+                    $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
+                    return;
+                }
+            }
+        }
+        if ($this->getGlobalSetting('roles_to_check', '') != '' && $rolesKey = $this->getGlobalSetting('roles_key', '')) {
+            $aRoles = $this->getFromResourceData($rolesKey);
+            $rolesToCheck=explode($this->getGlobalSetting('roles_to_check_separator', ','),$this->getGlobalSetting('roles_to_check', ''));
+            
+            $debug = (boolean)$this->getGlobalSetting('debug', false);
+            if($debug) {
+                error_log("Data : " . json_encode($aRoles));
+                error_log("rolesToCheck : " . json_encode($rolesToCheck));
+            }
+            
+            $incorrectRole=true;
+            foreach ($rolesToCheck as $role) {
+                if(in_array($role, $aRoles)) {
+                    $incorrectRole=false;
+                }
+            }
+            if ($incorrectRole) {
+                if ($this->getGlobalSetting('is_default')) {
+                    $this->beforeLogout();
+                    /* No way to connect : throw a 403 error (avoid looping) */
+                    throw new CHttpException(403, gT('Incorrect role!'));
+                } else {
+                    $this->beforeLogout();
                     $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
                     return;
                 }
@@ -438,9 +554,11 @@ class AuthOAuth2 extends AuthPluginBase
             $this->unsubscribe('getGlobalBasePermissions');
 
             $usernameKey = $this->getGlobalSetting('username_key');
-            $username = $this->getTemplatedKey($usernameKey);
+            $usernameSeparator = $this->getGlobalSetting('display_separator_username', '.');
+            $username = $this->getTemplatedKey($usernameKey, $usernameSeparator);
             $displayNameKey = $this->getGlobalSetting('display_name_key');
-            $displayName = $this->getTemplatedKey($displayNameKey, ' ');
+            $displayNameSeparator = $this->getGlobalSetting('display_separator_displayname', ' ');
+            $displayName = $this->getTemplatedKey($displayNameKey, $displayNameSeparator);
             $emailKey = $this->getGlobalSetting('email_key');
             $email = $this->getFromResourceData($emailKey);
 
@@ -492,9 +610,11 @@ class AuthOAuth2 extends AuthPluginBase
                     Permission::model()->setGlobalPermission($user->uid, 'auth_oauth');
                 } else {
                     if ($this->getGlobalSetting('is_default')) {
+                        $this->beforeLogout();
                         /* No way to connect : throw a 403 error (avoid looping) */
                         throw new CHttpException(403, gT('Incorrect username and/or password!'));
                     } else {
+                        $this->beforeLogout();
                         $this->setAuthFailure(self::ERROR_AUTH_METHOD_INVALID);
                         return;
                     }
@@ -503,6 +623,66 @@ class AuthOAuth2 extends AuthPluginBase
             $this->setUsername($user->users_name);
             $this->setAuthSuccess($user);
         }
+    }
+
+    /**
+     * @throws CHttpException
+     */
+    public function beforeLogout(): void
+    {
+        $logoutUrl = $this->getGlobalSetting("logout_url");
+        $clientId = $this->getGlobalSetting("client_id");
+        $clientSecret = $this->getGlobalSetting("client_secret");
+        
+        $debug = (boolean)$this->getGlobalSetting('debug', false);
+
+        if($debug) {
+            error_log("LogoutUrl : " . $logoutUrl);
+            error_log("clientid : " . $clientId);
+            error_log(json_encode(Yii::app()->session));
+        }
+        $accessToken = Yii::app()->session['access_token'];
+        if (!$accessToken) {
+            return;
+        }
+
+        $refreshToken = $accessToken->getRefreshToken();
+        if (!$refreshToken) {
+            return;
+        }
+
+        if($debug) {
+            error_log("AccessToken and RefreshToken presents.");
+        }
+
+        $postData = http_build_query([
+            'client_id' => $clientId,
+            'client_secret' => $clientSecret,
+            'refresh_token' => $refreshToken,
+        ]);
+        
+        $headers = [
+            'Authorization: Bearer ' . $accessToken,
+            'Content-Type: application/x-www-form-urlencoded',
+        ];
+        
+        $ch = curl_init($logoutUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        // Optionally log the response or check for errors 
+        if (intval($httpCode / 100) !== 2) { // Ok for 200 201 204 etc
+            error_log("Logout request failed: HTTP $httpCode - $response");
+        }
+        
+        // Clear session data after logout
+        Yii::app()->session->clear();
+        Yii::app()->session->destroy();     
     }
 
     public function getGlobalBasePermissions(): void
@@ -529,39 +709,16 @@ class AuthOAuth2 extends AuthPluginBase
     public function getTemplatedKey(string $iKey, string $iSeparator = '.'): string
     {
         $rValue = '';
-        if (str_contains($iKey, '.') || str_contains($iKey, '+')) {
+        $keySeparator = $this->getGlobalSetting('key_separator', '.');
+        $wordSeparator = $this->getGlobalSetting('word_separator', '+');
+        if (str_contains($iKey, $keySeparator) || str_contains($iKey, $wordSeparator)) {
             $newUsernameKey = '';
             $sub_values = array_map(
                 function ($sub_key) {
-                    $sub_key_modified = $sub_key;
-                    $value = '';
-                    if (str_contains($sub_key, '.')) {
-                        $sub_key_as_table = explode('.', $sub_key);
-                        $sub_key_modified = $sub_key_as_table[0];
-                        $value = $this->getFromResourceData($sub_key_modified);
-                        $modifier = $sub_key_as_table[1];
-                        if ($modifier === 'first_letter') {
-                            $value = join('', array_map(
-                                function ($spaceSeparatedElements) {
-                                    return strtolower($spaceSeparatedElements[0]);
-                                },
-                                explode(' ', $value)
-                            ));
-                        } elseif ($modifier === 'capitalize') {
-                            $value = ucfirst(strtolower($value));
-                        } elseif ($modifier === 'upper_case') {
-                            $value = strtoupper($value);
-                        } elseif ($modifier === 'lower_case') {
-                            $value = strtolower($value);
-                        }
-                    } else {
-                        $value = $this->getFromResourceData($sub_key_modified);
-                    }
-                    return $value;
+                    return $this->getFromResourceData($sub_key, true);
                 },
-                explode("+", $iKey)
+                explode($wordSeparator, $iKey)
             );
-
             $rValue = join($iSeparator, $sub_values);
         } else {
             $rValue = $this->getFromResourceData($iKey);
@@ -571,15 +728,49 @@ class AuthOAuth2 extends AuthPluginBase
 
     /**
      * @param string $key
+     * @param bool $modifier
      * @return mixed
      */
-    private function getFromResourceData(string $key): mixed
+    private function getFromResourceData(string $key, bool $modifier=false): mixed
     {
-        $value = '';
-        if (empty($this->resourceData[$key])) {
-            throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
-        } else {
-            $value = $this->resourceData[$key];
+        $keySeparator = $this->getGlobalSetting('key_separator', '.');
+        $keys = explode($keySeparator, $key); // Split key by dot notation
+        $value = $this->resourceData;
+
+        $debug = (boolean)$this->getGlobalSetting('debug', false);
+        if($debug) {
+            error_log("Data : " . json_encode($value));
+            error_log("Keys : " . json_encode($keys));
+        }
+        
+        foreach ($keys as $part) {
+            if (!is_array($value)) {
+                if($modifier) {
+                    // Apply modifications if a known modifier exists
+                    if ($part === 'first_letter') {
+                        $value = join('', array_map(fn($word) => strtolower($word[0]), explode(' ', $value)));
+                    } elseif ($part === 'capitalize') {
+                        $value = ucfirst(strtolower($value));
+                    } elseif ($part === 'upper_case') {
+                        $value = strtoupper($value);
+                    } elseif ($part === 'lower_case') {
+                        $value = strtolower($value);
+                    } else {
+                        throw new CHttpException(401, $this->gT('User data or modifier is missing required attributes to create new user:') . $key);
+                    }
+                } else {
+                    throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
+                }
+            } else {
+                if (array_key_exists($part, $value)) {
+                    $value = $value[$part]; // Move deeper into the array
+                } else {
+                    throw new CHttpException(401, $this->gT('User data is missing required attributes to create new user:') . $key);
+                }
+            }
+        }
+        if($debug) {
+            error_log("Value : " . json_encode($value));
         }
         return $value;
     }
