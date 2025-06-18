@@ -447,6 +447,7 @@ class AuthOAuth2 extends AuthPluginBase
                 error_log("AccessToken : " . $accessToken);
             }
         } catch (Throwable $exception) {
+            error_log($exception);
             throw new CHttpException(400, $this->gT('Failed to retrieve access token'));
         }
         Yii::app()->session['access_token']=$accessToken;
@@ -455,6 +456,7 @@ class AuthOAuth2 extends AuthPluginBase
             $resourceOwner = $provider->getResourceOwner($accessToken);
             $this->resourceData = $resourceOwner->toArray();
         } catch (Throwable $exception) {
+            error_log($exception);
             throw new CHttpException(400, $this->gT('Failed to retrieve user details'));
         }
 
