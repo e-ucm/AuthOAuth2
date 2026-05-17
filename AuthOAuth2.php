@@ -339,22 +339,60 @@ class AuthOAuth2 extends AuthPluginBase
             ];
         }
 
-        $this->settings['autocreate_permissions'] = [
-            'type' => 'json',
-            'label' => $this->gT('Global permissions for new users'),
-            'help' => sprintf(
-                $this->gT('A JSON object describing the default permissions to be assigned to users that are automatically created. The JSON object has the following form: %s'),
-                CHtml::tag('pre', [], "{\n\t\"surveys\": { ... },\n\t\"templates\": {\n\t\t\"create\": false,\n\t\t\"read\": false,\n\t\t\"update\": false,\n\t\t\"delete\": false,\n\t\t\"import\": false,\n\t\t\"export\": false,\n\t},\n\t\"users\": { ... },\n\t...\n}")
-            ),
-            'editorOptions' => array('mode' => 'tree'),
-            'default' => $this->getGlobalSetting(
-                'autocreate_permissions',
-                self::getDefaultPermission()
-            ),
+         $this->settings['auto_create_labelsets'] = array (
+            'type' => 'string',
+            'label' => '- Permissions: Label Sets',
+            'default' => '',
+            'help' => $this->gT('Comma-separated list of permissions to be set to true for label sets when a user is automatically created. Possible permissions are: create_p, read_p, update_p, delete_p, import_p, export_p.'),
             'htmlOptions' => [
-                'disabled' => in_array('autocreate_permissions', $fixedPluginSettings)
+                'disabled' => in_array('auto_create_labelsets', $fixedPluginSettings)
             ],
-        ];
+        );
+        $this->settings['auto_create_participant_panel'] = array (
+            'type' => 'string',
+            'label' => '- Permissions: Participant panel',
+            'default' => '',
+            'help' => $this->gT('Comma-separated list of permissions to be set to true for participant panel when a user is automatically created. Possible permissions are: create_p, read_p, update_p, delete_p, import_p, export_p.'),
+            'htmlOptions' => [
+                'disabled' => in_array('auto_create_participant_panel', $fixedPluginSettings)
+            ]
+        );
+        $this->settings['auto_create_settings_plugins'] = array (
+            'type' => 'string',
+            'label' => '- Permissions: Settings & Plugins',
+            'default' => '',
+            'help' => $this->gT('Comma-separated list of permissions to be set to true for settings & plugins when a user is automatically created. Possible permissions are: create_p, read_p, update_p, delete_p, import_p, export_p.'),
+            'htmlOptions' => [
+                'disabled' => in_array('auto_create_settings_plugins', $fixedPluginSettings)
+            ]
+        );
+        $this->settings['auto_create_surveys'] = array (
+            'type' => 'string',
+            'label' => '- Permissions: Surveys',
+            'default' => 'create_p,update_p,delete_p,export_p',
+            'help' => $this->gT('Comma-separated list of permissions to be set to true for surveys when a user is automatically created. Possible permissions are: create_p, read_p, update_p, delete_p, import_p, export_p.'),
+            'htmlOptions' => [
+                'disabled' => in_array('auto_create_surveys', $fixedPluginSettings)
+            ],
+        );
+        $this->settings['auto_create_templates'] = array (
+            'type' => 'string',
+            'label' => '- Permissions: Templates',
+            'default' => 'create_p,update_p,delete_p,import_p,export_p',
+            'help' => $this->gT('Comma-separated list of permissions to be set to true for templates when a user is automatically created. Possible permissions are: create_p, read_p, update_p, delete_p, import_p, export_p.'),
+            'htmlOptions' => [
+                'disabled' => in_array('auto_create_templates', $fixedPluginSettings)
+            ],
+        );
+        $this->settings['auto_create_user_groups'] = array (
+            'type' => 'string',
+            'label' => '- Permissions: User groups',
+            'default' => 'create_p,read_p,update_p,delete_p',
+            'help' => $this->gT('Comma-separated list of permissions to be set to true for user groups when a user is automatically created. Possible permissions are: create_p, read_p, update_p, delete_p, import_p, export_p.'),
+            'htmlOptions' => [
+                'disabled' => in_array('auto_create_user_groups', $fixedPluginSettings)
+            ],
+        );
         /* Get current */
         $pluginSettings = parent::getPluginSettings($getValues);
         /* Update current for fixed one */
@@ -575,12 +613,9 @@ class AuthOAuth2 extends AuthPluginBase
             if (!$user->save()) {
                 throw new CHttpException(401, $this->gT('Failed to create new user'));
             }
-            $defaultPermissions = @json_decode($this->getGlobalSetting('autocreate_permissions', self::getDefaultPermission()), true);
-            if (!empty($defaultPermissions)) {
-                Permission::setPermissions($user->uid, 0, 'global', $defaultPermissions, true);
-            }
+
             /* Add auth_oauth2 permission if not already exist*/
-            self::setOauthPermission($user->uid, true);
+            $this->setOauthPermission($user->uid);
             /* Add optional roles */
             if (method_exists(Permissiontemplates::class, 'applyToUser')) {
                 $autocreateRoles = $this->getGlobalSetting('autocreate_roles');
@@ -600,16 +635,16 @@ class AuthOAuth2 extends AuthPluginBase
                 $this->setRolesToUser($user->uid);
             }
             /* Check for permission */
-            if (!Permission::model()->hasGlobalPermission('auth_oauth', 'read', $user->uid)) {
+            if (!Permission::model()->hasGlobalPermission('auth_oauth2', 'read', $user->uid)) {
                 /* Check if permission exist : if not create as true, else send error */
                 $permissionnExist = Permission::model()->findByAttributes([
                     'entity_id' => 0,
                     'entity' => 'global',
                     'uid' => $user->uid,
-                    'permission' => 'auth_oauth'
+                    'permission' => 'auth_oauth2'
                 ]);
                 if (empty($permissionnExist)) {
-                    Permission::model()->setGlobalPermission($user->uid, 'auth_oauth');
+                    Permission::model()->setGlobalPermission($user->uid, 'auth_oauth2');
                 } else {
                     if ($this->getGlobalSetting('is_default')) {
                         $this->beforeLogout();
@@ -690,14 +725,14 @@ class AuthOAuth2 extends AuthPluginBase
     public function getGlobalBasePermissions(): void
     {
         $this->getEvent()->append('globalBasePermissions', array(
-            'auth_oauth' => array(
+            'auth_oauth2' => array(
                 'create' => false,
                 'update' => false,
                 'delete' => false,
                 'import' => false,
                 'export' => false,
-                'title' => "Use OAuth authentication",
-                'description' => "Use OAuth authentication",
+                'title' => "Use OAuth2 authentication",
+                'description' => "Use OAuth2 authentication",
                 'img' => 'fa fa-user-circle-o'
             ),
         ));
@@ -821,73 +856,6 @@ class AuthOAuth2 extends AuthPluginBase
         return [];
     }
 
-     /**
-      * Return global default permission
-      * @return string
-      */
-    private static function getDefaultPermission()
-    {
-        return json_encode([
-            'surveys' => [
-                'create' => true,
-                'read' => false,
-                'update' => false,
-                'delete' => false,
-                'export' => false,
-            ],
-            'surveysgroups' => [
-                'create' => false,
-                'read' => true,
-                'update' => false,
-                'delete' => false,
-            ],
-            'labelsets' => [
-                'create' => false,
-                'read' => true,
-                'update' => false,
-                'delete' => false,
-                'import' => false,
-                'export' => false,
-            ],
-            'templates' => [
-                'create' => false,
-                'read' => true,
-                'update' => false,
-                'delete' => false,
-                'import' => false,
-                'export' => false,
-            ],
-            'users' => [
-                'create' => false,
-                'read' => false,
-                'update' => false,
-                'delete' => false,
-            ],
-            'usergroups' => [
-                'create' => false,
-                'read' => false,
-                'update' => false,
-                'delete' => false,
-            ],
-            'settings' => [
-                'read' => false,
-                'update' => false,
-                'import' => false,
-            ],
-            'participantpanel' => [
-                'create' => false,
-                'read' => false,
-                'update' => false,
-                'delete' => false,
-                'import' => false,
-                'export' => false,
-            ],
-            'auth_db' => [
-                'read' => false,
-            ]
-        ]);
-    }
-
     /**
      * Set the roles using current settings
      * @param integer $userId
@@ -917,39 +885,90 @@ class AuthOAuth2 extends AuthPluginBase
                 }
                 // Set the auth_oauth global permission to 0 (not used if have roles, but keep it at 0 for roles_needed
                 if ($resetPermission) {
-                    self::setOauthPermission($userId, false);
+                    $this->setOauthPermission($userId, false);
                 }
             }
         }
     }
     /**
-     * Set Oauth permission  : use to create permission with 0 ar read_p or update if exist.
+     * Set Oauth2 permission and assign default permissions to a new user.
      * @param integer $userId
-     * @param boolean $read permission
+     * @param boolean $allow
      */
-    private static function setOauthPermission($userId, $allow = true)
+    private function setOauthPermission($userId, $allow = true)
     {
+        // 1. Set the auth_oauth2 global permission (controls login access)
         $oPermission = Permission::model()->find(
-            "uid= :uid AND entity = :entity AND permission = :permission",
-            array(
-                'uid' => $userId,
-                'entity' => 'global',
-                'permission' => 'auth_oauth',
-            )
+            "uid = :uid AND entity = :entity AND permission = :permission",
+            [
+                ':uid'        => $userId,
+                ':entity'     => 'global',
+                ':permission' => 'auth_oauth2',
+            ]
         );
         if (!$oPermission) {
             $oPermission = new Permission();
-            $oPermission->uid = $userId;
-            $oPermission->entity = 'global';
+            $oPermission->uid       = $userId;
+            $oPermission->entity    = 'global';
             $oPermission->entity_id = 0;
-            $oPermission->permission = 'auth_oauth';
+            $oPermission->permission = 'auth_oauth2';
         }
         $oPermission->create_p = 0;
-        $oPermission->read_p = intval(boolval($allow));
+        $oPermission->read_p   = 0;
         $oPermission->update_p = 0;
         $oPermission->delete_p = 0;
         $oPermission->import_p = 0;
         $oPermission->export_p = 0;
         $oPermission->save();
+
+        // Only assign default permissions when allowing (i.e. new user creation)
+        if (!$allow) {
+            return;
+        }
+
+        // 2. Default theme template read permission (mirrors SAML's insertSomeRecords)
+        Permission::model()->insertSomeRecords([
+            'uid'        => $userId,
+            'permission' => getGlobalSetting('defaulttheme'),
+            'entity_id'  => 0,
+            'entity'     => 'template',
+            'read_p'     => 1,
+        ]);
+
+        // 3. Set permissions: Label Sets
+        $auto_create_labelsets = $this->getGlobalSetting('auto_create_labelsets', '');
+        if (!empty($auto_create_labelsets)) {
+            Permission::model()->setGlobalPermission($userId, 'labelsets', explode(',', $auto_create_labelsets));
+        }
+
+        // 4. Set permissions: Participant Panel
+        $auto_create_participant_panel = $this->getGlobalSetting('auto_create_participant_panel', '');
+        if (!empty($auto_create_participant_panel)) {
+            Permission::model()->setGlobalPermission($userId, 'participantpanel', explode(',', $auto_create_participant_panel));
+        }
+
+        // 5. Set permissions: Settings & Plugins
+        $auto_create_settings_plugins = $this->getGlobalSetting('auto_create_settings_plugins', '');
+        if (!empty($auto_create_settings_plugins)) {
+            Permission::model()->setGlobalPermission($userId, 'settings', explode(',', $auto_create_settings_plugins));
+        }
+
+        // 6. Set permissions: Surveys
+        $auto_create_surveys = $this->getGlobalSetting('auto_create_surveys', 'create_p,read_p,update_p,delete_p,export_p');
+        if (!empty($auto_create_surveys)) {
+            Permission::model()->setGlobalPermission($userId, 'surveys', explode(',', $auto_create_surveys));
+        }
+
+        // 7. Set permissions: Templates
+        $auto_create_templates = $this->getGlobalSetting('auto_create_templates', 'create_p,read_p,update_p,delete_p,import_p,export_p');
+        if (!empty($auto_create_templates)) {
+            Permission::model()->setGlobalPermission($userId, 'templates', explode(',', $auto_create_templates));
+        }
+
+        // 8. Set permissions: User Groups
+        $auto_create_user_groups = $this->getGlobalSetting('auto_create_user_groups', 'create_p,read_p,update_p,delete_p');
+        if (!empty($auto_create_user_groups)) {
+            Permission::model()->setGlobalPermission($userId, 'usergroups', explode(',', $auto_create_user_groups));
+        }
     }
 }
