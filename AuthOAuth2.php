@@ -283,33 +283,33 @@ class AuthOAuth2 extends AuthPluginBase
                 'export_p' => $this->gT('export_p'),
             ];
 
-            $this->settings['auto_create_labelsets'] = [
-                'type'    => 'select',
-                'label'   => $this->gT('- Permissions: Label Sets'),
-                'help'    => $this->gT('Permissions for label sets when a user is automatically created.'),
-                'options' => $allPermissions,
-                'default' => $this->getGlobalSetting('auto_create_labelsets', ''),
-                'htmlOptions' => [
-                    'multiple' => true,
-                    'disabled' => in_array('auto_create_labelsets', $fixedPluginSettings),
-                ],
-                'selectOptions' => [
-                    'disabled' => in_array('auto_create_labelsets', $fixedPluginSettings),
-                ],
-            ];
-
             $this->settings['auto_create_participant_panel'] = [
                 'type'    => 'select',
                 'label'   => $this->gT('- Permissions: Participant Panel'),
                 'help'    => $this->gT('Permissions for participant panel when a user is automatically created.'),
                 'options' => $allPermissions,
-                'default' => $this->getGlobalSetting('auto_create_participant_panel', ''),
+                'default' => $this->getGlobalSetting('auto_create_participant_panel', []),
                 'htmlOptions' => [
                     'multiple' => true,
                     'disabled' => in_array('auto_create_participant_panel', $fixedPluginSettings),
                 ],
                 'selectOptions' => [
                     'disabled' => in_array('auto_create_participant_panel', $fixedPluginSettings),
+                ],
+            ];
+
+            $this->settings['auto_create_labelsets'] = [
+                'type'    => 'select',
+                'label'   => $this->gT('- Permissions: Label Sets'),
+                'help'    => $this->gT('Permissions for label sets when a user is automatically created.'),
+                'options' => $allPermissions,
+                'default' => $this->getGlobalSetting('auto_create_labelsets', []),
+                'htmlOptions' => [
+                    'multiple' => true,
+                    'disabled' => in_array('auto_create_labelsets', $fixedPluginSettings),
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('auto_create_labelsets', $fixedPluginSettings),
                 ],
             ];
 
@@ -318,7 +318,7 @@ class AuthOAuth2 extends AuthPluginBase
                 'label'   => $this->gT('- Permissions: Settings & Plugins'),
                 'help'    => $this->gT('Permissions for settings & plugins when a user is automatically created.'),
                 'options' => $allPermissions,
-                'default' => $this->getGlobalSetting('auto_create_settings_plugins', ''),
+                'default' => $this->getGlobalSetting('auto_create_settings_plugins', []),
                 'htmlOptions' => [
                     'multiple' => true,
                     'disabled' => in_array('auto_create_settings_plugins', $fixedPluginSettings),
@@ -327,7 +327,20 @@ class AuthOAuth2 extends AuthPluginBase
                     'disabled' => in_array('auto_create_settings_plugins', $fixedPluginSettings),
                 ],
             ];
-
+            $this->settings['auto_create_surveys_groups'] = [
+                'type'    => 'select',
+                'label'   => $this->gT('- Permissions: Surveys Groups'),
+                'help'    => $this->gT('Permissions for surveys groups when a user is automatically created.'),
+                'options' => $allPermissions,
+                'default' => $this->getGlobalSetting('auto_create_surveys_groups', []),
+                'htmlOptions' => [
+                    'multiple' => true,
+                    'disabled' => in_array('auto_create_surveys_groups', $fixedPluginSettings),
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('auto_create_surveys_groups', $fixedPluginSettings),
+                ],
+            ];
             $this->settings['auto_create_surveys'] = [
                 'type'    => 'select',
                 'label'   => $this->gT('- Permissions: Surveys'),
@@ -1108,18 +1121,17 @@ class AuthOAuth2 extends AuthPluginBase
         // Build the permission data from auto_create_* settings
         // This is the same map used in assignDefaultPermissions
         $permissionMap = [
-            'auto_create_labelsets'        => ['entity' => 'labelsets'],
             'auto_create_participant_panel' => ['entity' => 'participantpanel'],
+            'auto_create_labelsets'        => ['entity' => 'labelsets'],
             'auto_create_settings_plugins' => ['entity' => 'settings'],
+            'auto_create_surveys_groups'    => ['entity' => 'surveysgroups'],
             'auto_create_surveys'          => ['entity' => 'surveys'],
             'auto_create_templates'        => ['entity' => 'templates'],
             'auto_create_user_groups'      => ['entity' => 'usergroups'],
-            'auth_db'                      => ['entity' => 'auth_db', 'default' => []],              // Exclude the core auth_db permission for completeness
-            'auth_oauth2'                  => ['entity' => 'auth_oauth2', 'default' => ['read_p']], // Include the core auth_oauth2 permission for completeness
             'users'                        => ['entity' => 'users', 'default' => []],                // Include the core users permission for completeness
             'superadmin'                   => ['entity' => 'superadmin', 'default' => []],          // Include the core superadmin permission for completeness
-            'surveysgroups'                => ['entity' => 'surveysgroups', 'default' => []],          // Include the core surveysgroups permission for completeness
-            'participantpanel'             => ['entity' => 'participantpanel', 'default' => []],          // Include the core participantpanel permission for completeness
+            'auth_db'                      => ['entity' => 'auth_db', 'default' => []],              // Exclude the core auth_db permission for completeness
+            'auth_oauth2'                  => ['entity' => 'auth_oauth2', 'default' => ['read_p']], // Include the core auth_oauth2 permission for completeness
         ];
 
         // Pre-compute the permissions array from settings once
