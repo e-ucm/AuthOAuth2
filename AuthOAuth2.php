@@ -944,7 +944,7 @@ class AuthOAuth2 extends AuthPluginBase
         
         // 2. Default theme template read permission (mirrors SAML's insertSomeRecords)
         Permission::model()->insertSomeRecords([
-            'uid'        => $user->uid,
+            'uid'        => $userId,
             'permission' => getGlobalSetting('defaulttheme'),
             'entity_id'  => 0,
             'entity'     => 'template',
