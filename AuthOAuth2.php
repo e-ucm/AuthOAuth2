@@ -915,15 +915,6 @@ class AuthOAuth2 extends AuthPluginBase
             $oPermission->entity    = 'global';
             $oPermission->entity_id = 0;
             $oPermission->permission = 'auth_oauth2';
-
-            // 2. Default theme template read permission (mirrors SAML's insertSomeRecords)
-            Permission::model()->insertSomeRecords([
-                'uid'        => $user->uid,
-                'permission' => getGlobalSetting('defaulttheme'),
-                'entity_id'  => 0,
-                'entity'     => 'template',
-                'read_p'     => 1,
-            ]);
         }
         $oPermission->create_p = 0;
         $oPermission->read_p   = $allow ? 1 : 0;
@@ -938,6 +929,27 @@ class AuthOAuth2 extends AuthPluginBase
             return;
         }
 
+        // Delete any stale global permission records before reinserting
+        foreach (['surveys', 'templates', 'usergroups', 'labelsets', 'participantpanel', 'settings'] as $perm) {
+            Permission::model()->deleteAll(
+                "uid = :uid AND entity = 'global' AND permission = :permission",
+                [':uid' => $userId, ':permission' => $perm]
+            );
+        }
+        // Also clean up template read permission to avoid duplicate on retry
+        Permission::model()->deleteAll(
+            "uid = :uid AND entity = 'template' AND permission = :permission",
+            [':uid' => $userId, ':permission' => getGlobalSetting('defaulttheme')]
+        );
+        
+        // 2. Default theme template read permission (mirrors SAML's insertSomeRecords)
+        Permission::model()->insertSomeRecords([
+            'uid'        => $user->uid,
+            'permission' => getGlobalSetting('defaulttheme'),
+            'entity_id'  => 0,
+            'entity'     => 'template',
+            'read_p'     => 1,
+        ]);
         // 3. Set permissions: Label Sets
         $auto_create_labelsets = $this->getGlobalSetting('auto_create_labelsets', '');
         if (!empty($auto_create_labelsets)) {
