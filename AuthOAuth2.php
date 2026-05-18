@@ -521,6 +521,7 @@ class AuthOAuth2 extends AuthPluginBase
     {
         $userIdentifier = $this->getUserName();
         $identity = $this->getEvent()->get('identity');
+        $hasRoleNeeded = false;
         if ($identity->plugin != self::class || $identity->username !== $userIdentifier) {
             return;
         }
@@ -575,9 +576,11 @@ class AuthOAuth2 extends AuthPluginBase
             foreach ($rolesToCheck as $role) {
                 if(in_array($role, $aRoles)) {
                     $incorrectRole=false;
+                    $hasRoleNeeded = true;
                 }
             }
             if ($incorrectRole) {
+                $hasRoleNeeded = false;
                 if ($this->getGlobalSetting('is_default')) {
                     $this->beforeLogout();
                     /* No way to connect : throw a 403 error (avoid looping) */
@@ -588,6 +591,8 @@ class AuthOAuth2 extends AuthPluginBase
                     return;
                 }
             }
+        } else {
+            $hasRoleNeeded = null;
         }
         if (!$user) {
             /* unregister to don't update event */
@@ -614,8 +619,6 @@ class AuthOAuth2 extends AuthPluginBase
                 throw new CHttpException(401, $this->gT('Failed to create new user'));
             }
 
-            /* Add auth_oauth2 permission if not already exist*/
-            $this->setOauthPermission($user->uid);
             /* Add optional roles */
             if (method_exists(Permissiontemplates::class, 'applyToUser')) {
                 $autocreateRoles = $this->getGlobalSetting('autocreate_roles');
@@ -624,7 +627,7 @@ class AuthOAuth2 extends AuthPluginBase
                         Permissiontemplates::model()->applyToUser($user->uid, $role);
                     }
                 }
-                $this->setRolesToUser($user->uid);
+                $this->setRolesToUser($user->uid, $hasRoleNeeded);
             }
             $this->setUsername($user->users_name);
             $this->setAuthSuccess($user, $oIdentityEvent);
@@ -632,7 +635,7 @@ class AuthOAuth2 extends AuthPluginBase
             /* Update roles if needed */
             if ($this->getGlobalSetting('roles_update', false)) {
                 UserInPermissionrole::model()->deleteAll("uid = :uid", [':uid' => $user->uid]);
-                $this->setRolesToUser($user->uid);
+                $this->setRolesToUser($user->uid, $hasRoleNeeded);
             }
             /* Check for permission */
             if (!Permission::model()->hasGlobalPermission('auth_oauth2', 'read', $user->uid)) {
@@ -859,8 +862,9 @@ class AuthOAuth2 extends AuthPluginBase
     /**
      * Set the roles using current settings
      * @param integer $userId
+     * @param boolean $hasRoleNeeded
      */
-    private function setRolesToUser($userId)
+    private function setRolesToUser($userId, $hasRoleNeeded = false)
     {
         $rolesKey = $this->getGlobalSetting('roles_key', '');
         if (!empty($rolesKey)) {
@@ -883,10 +887,9 @@ class AuthOAuth2 extends AuthPluginBase
                         Permissiontemplates::model()->applyToUser($userId, $oRole->ptid);
                     }
                 }
-                // Set the auth_oauth global permission to 0 (not used if have roles, but keep it at 0 for roles_needed
-                if ($resetPermission) {
-                    $this->setOauthPermission($userId, false);
-                }
+                error_log(sprintf("Roles %s checked to user %d", implode(', ', $aRoles), $userId));
+                // Set the auth_oauth global permission to 0 (not used if have roles, but keep it at 1 for roles_needed
+                $this->setOauthPermission($userId, $hasRoleNeeded);
             }
         }
     }
@@ -912,9 +915,18 @@ class AuthOAuth2 extends AuthPluginBase
             $oPermission->entity    = 'global';
             $oPermission->entity_id = 0;
             $oPermission->permission = 'auth_oauth2';
+
+            // 2. Default theme template read permission (mirrors SAML's insertSomeRecords)
+            Permission::model()->insertSomeRecords([
+                'uid'        => $user->uid,
+                'permission' => getGlobalSetting('defaulttheme'),
+                'entity_id'  => 0,
+                'entity'     => 'template',
+                'read_p'     => 1,
+            ]);
         }
         $oPermission->create_p = 0;
-        $oPermission->read_p   = 0;
+        $oPermission->read_p   = $allow ? 1 : 0;
         $oPermission->update_p = 0;
         $oPermission->delete_p = 0;
         $oPermission->import_p = 0;
@@ -925,15 +937,6 @@ class AuthOAuth2 extends AuthPluginBase
         if (!$allow) {
             return;
         }
-
-        // 2. Default theme template read permission (mirrors SAML's insertSomeRecords)
-        Permission::model()->insertSomeRecords([
-            'uid'        => $userId,
-            'permission' => getGlobalSetting('defaulttheme'),
-            'entity_id'  => 0,
-            'entity'     => 'template',
-            'read_p'     => 1,
-        ]);
 
         // 3. Set permissions: Label Sets
         $auto_create_labelsets = $this->getGlobalSetting('auto_create_labelsets', '');
