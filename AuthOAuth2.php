@@ -1138,9 +1138,10 @@ class AuthOAuth2 extends AuthPluginBase
         // Format: ['surveys' => ['create_p', 'update_p', ...], 'templates' => [...], ...]
         $resolvedPermissions = [];
         foreach ($permissionMap as $setting => $config) {
-            $value = $this->getGlobalSetting($setting, $config['default'] ?? []);
+            $value = $this->getGlobalSetting($setting, array_key_exists('default', $config) ? $config['default'] : []);
+            error_log(sprintf("Resolved permissions for setting '%s': %s", $setting, json_encode($value)));
             if (!empty($value)) {
-                $resolvedPermissions[$config['entity']] = $this->getGlobalSetting($setting);
+                $resolvedPermissions[$config['entity']] = $value;
             }
         }
 
@@ -1191,56 +1192,58 @@ class AuthOAuth2 extends AuthPluginBase
                 // Now sync the permission records for this template.
                 // Update existing ones and reinsert from current settings
                 // so the template always reflects the current plugin config.
-                if(in_array($role, $rolesToCheck)) {
+                if (in_array($role, $rolesToCheck)) {
                     foreach ($resolvedPermissions as $entity => $perms) {
-                            // Template permissions use entity='global', entity_id=0, uid=ptid
-                            $oPermission = Permission::model()->find(
-                                "uid = :uid AND entity_id = :entity_id AND entity = :entity AND permission = :permission",
-                                [
-                                    ':uid'        => $oTemplate->ptid,  // ptid goes in uid
-                                    ':entity_id'  => 0,                  // entity_id is 0
-                                    ':entity'     => 'role',
-                                    ':permission' => $entity,
-                                ]
-                            );
+                        // Ensure $perms is always an array
+                        $perms = is_array($perms) ? $perms : [];
+                        // Consistently use uid=0, entity_id=ptid for template permissions
+                        $oPermission = Permission::model()->find(
+                            "uid = :uid AND entity_id = :entity_id AND entity = :entity AND permission = :permission",
+                            [
+                                ':uid'        => 0, // Always 0 for template permissions
+                                ':entity_id'  => $oTemplate->ptid, // ptid as entity_id
+                                ':entity'     => 'role',
+                                ':permission' => $entity,
+                            ]
+                        );
 
-                            if (!$oPermission) {
-                                $oPermission = new Permission();
-                                $oPermission->uid        = 0;                   // uid is 0
-                                $oPermission->entity_id  = $oTemplate->ptid;    // ptid goes in entity_id
-                                $oPermission->entity     = 'role';             // entity is 'role' to distinguish from global permissions
-                                $oPermission->permission = $entity;
-                            }
+                        if (!$oPermission) {
+                            $oPermission = new Permission();
+                            $oPermission->uid        = 0;
+                            $oPermission->entity_id  = $oTemplate->ptid;
+                            $oPermission->entity     = 'role';
+                            $oPermission->permission = $entity;
+                        }
 
-                            $oPermission->create_p = in_array('create_p', $perms) ? 1 : 0;
-                            $oPermission->read_p   = in_array('read_p',   $perms) ? 1 : 0;
-                            $oPermission->update_p = in_array('update_p', $perms) ? 1 : 0;
-                            $oPermission->delete_p = in_array('delete_p', $perms) ? 1 : 0;
-                            $oPermission->import_p = in_array('import_p', $perms) ? 1 : 0;
-                            $oPermission->export_p = in_array('export_p', $perms) ? 1 : 0;
+                        $oPermission->create_p = in_array('create_p', $perms) ? 1 : 0;
+                        $oPermission->read_p   = in_array('read_p',   $perms) ? 1 : 0;
+                        $oPermission->update_p = in_array('update_p', $perms) ? 1 : 0;
+                        $oPermission->delete_p = in_array('delete_p', $perms) ? 1 : 0;
+                        $oPermission->import_p = in_array('import_p', $perms) ? 1 : 0;
+                        $oPermission->export_p = in_array('export_p', $perms) ? 1 : 0;
 
-                            if (!$oPermission->save()) {
-                                error_log(sprintf(
-                                    "Failed to save permission '%s' for template '%s' (ptid=%d): %s",
-                                    $entity,
-                                    $oTemplate->name,
-                                    $oTemplate->ptid,
-                                    json_encode($oPermission->getErrors())
-                                ));
-                            } else {
-                                error_log(sprintf(
-                                    "Saved permission '%s' for template '%s' (ptid=%d): create=%d read=%d update=%d delete=%d import=%d export=%d",
-                                    $entity,
-                                    $oTemplate->name,
-                                    $oTemplate->ptid,
-                                    $oPermission->create_p,
-                                    $oPermission->read_p,
-                                    $oPermission->update_p,
-                                    $oPermission->delete_p,
-                                    $oPermission->import_p,
-                                    $oPermission->export_p
-                                ));
-                            }
+                        if (!$oPermission->save()) {
+                            error_log(sprintf(
+                                "Failed to save permission '%s' for template '%s' (ptid=%d): %s",
+                                $entity,
+                                $oTemplate->name,
+                                $oTemplate->ptid,
+                                json_encode($oPermission->getErrors())
+                            ));
+                        } else {
+                            error_log(sprintf(
+                                "Saved permission '%s' for template '%s' (ptid=%d): create=%d read=%d update=%d delete=%d import=%d export=%d",
+                                $entity,
+                                $oTemplate->name,
+                                $oTemplate->ptid,
+                                $oPermission->create_p,
+                                $oPermission->read_p,
+                                $oPermission->update_p,
+                                $oPermission->delete_p,
+                                $oPermission->import_p,
+                                $oPermission->export_p
+                            ));
+                        }
                     }
                 }
                 if ($isNew) {
