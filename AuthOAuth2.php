@@ -274,6 +274,117 @@ class AuthOAuth2 extends AuthPluginBase
                     'disabled' => in_array('autocreate_roles', $fixedPluginSettings)
                 ]
             ];
+            $allPermissions = [
+                'create_p' => $this->gT('create_p'),
+                'read_p'   => $this->gT('read_p'),
+                'update_p' => $this->gT('update_p'),
+                'delete_p' => $this->gT('delete_p'),
+                'import_p' => $this->gT('import_p'),
+                'export_p' => $this->gT('export_p'),
+            ];
+
+            $this->settings['auto_create_participant_panel'] = [
+                'type'    => 'select',
+                'label'   => $this->gT('- Permissions: Participant Panel'),
+                'help'    => $this->gT('Permissions for participant panel when a user is automatically created.'),
+                'options' => $allPermissions,
+                'default' => $this->getGlobalSetting('auto_create_participant_panel', []),
+                'htmlOptions' => [
+                    'multiple' => true,
+                    'disabled' => in_array('auto_create_participant_panel', $fixedPluginSettings),
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('auto_create_participant_panel', $fixedPluginSettings),
+                ],
+            ];
+
+            $this->settings['auto_create_labelsets'] = [
+                'type'    => 'select',
+                'label'   => $this->gT('- Permissions: Label Sets'),
+                'help'    => $this->gT('Permissions for label sets when a user is automatically created.'),
+                'options' => $allPermissions,
+                'default' => $this->getGlobalSetting('auto_create_labelsets', []),
+                'htmlOptions' => [
+                    'multiple' => true,
+                    'disabled' => in_array('auto_create_labelsets', $fixedPluginSettings),
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('auto_create_labelsets', $fixedPluginSettings),
+                ],
+            ];
+
+            $this->settings['auto_create_settings_plugins'] = [
+                'type'    => 'select',
+                'label'   => $this->gT('- Permissions: Settings & Plugins'),
+                'help'    => $this->gT('Permissions for settings & plugins when a user is automatically created.'),
+                'options' => $allPermissions,
+                'default' => $this->getGlobalSetting('auto_create_settings_plugins', []),
+                'htmlOptions' => [
+                    'multiple' => true,
+                    'disabled' => in_array('auto_create_settings_plugins', $fixedPluginSettings),
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('auto_create_settings_plugins', $fixedPluginSettings),
+                ],
+            ];
+            $this->settings['auto_create_surveys_groups'] = [
+                'type'    => 'select',
+                'label'   => $this->gT('- Permissions: Surveys Groups'),
+                'help'    => $this->gT('Permissions for surveys groups when a user is automatically created.'),
+                'options' => $allPermissions,
+                'default' => $this->getGlobalSetting('auto_create_surveys_groups', []),
+                'htmlOptions' => [
+                    'multiple' => true,
+                    'disabled' => in_array('auto_create_surveys_groups', $fixedPluginSettings),
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('auto_create_surveys_groups', $fixedPluginSettings),
+                ],
+            ];
+            $this->settings['auto_create_surveys'] = [
+                'type'    => 'select',
+                'label'   => $this->gT('- Permissions: Surveys'),
+                'help'    => $this->gT('Permissions for surveys when a user is automatically created.'),
+                'options' => $allPermissions,
+                'default' => $this->getGlobalSetting('auto_create_surveys', ['create_p', 'update_p', 'delete_p', 'export_p']),
+                'htmlOptions' => [
+                    'multiple' => true,
+                    'disabled' => in_array('auto_create_surveys', $fixedPluginSettings),
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('auto_create_surveys', $fixedPluginSettings),
+                ],
+            ];
+
+            $this->settings['auto_create_templates'] = [
+                'type'    => 'select',
+                'label'   => $this->gT('- Permissions: Templates'),
+                'help'    => $this->gT('Permissions for templates when a user is automatically created.'),
+                'options' => $allPermissions,
+                'default' => $this->getGlobalSetting('auto_create_templates', ['create_p', 'update_p', 'delete_p', 'import_p', 'export_p']),
+                'htmlOptions' => [
+                    'multiple' => true,
+                    'disabled' => in_array('auto_create_templates', $fixedPluginSettings),
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('auto_create_templates', $fixedPluginSettings),
+                ],
+            ];
+
+            $this->settings['auto_create_user_groups'] = [
+                'type'    => 'select',
+                'label'   => $this->gT('- Permissions: User Groups'),
+                'help'    => $this->gT('Permissions for user groups when a user is automatically created.'),
+                'options' => $allPermissions,
+                'default' => $this->getGlobalSetting('auto_create_user_groups', []),
+                'htmlOptions' => [
+                    'multiple' => true,
+                    'disabled' => in_array('auto_create_user_groups', $fixedPluginSettings),
+                ],
+                'selectOptions' => [
+                    'disabled' => in_array('auto_create_user_groups', $fixedPluginSettings),
+                ],
+            ];
             $this->settings['roles_key'] = [
                 'type' => 'string',
                 'label' => $this->gT('Key for roles in user detail'),
@@ -338,23 +449,7 @@ class AuthOAuth2 extends AuthPluginBase
                 ]
             ];
         }
-
-        $this->settings['autocreate_permissions'] = [
-            'type' => 'json',
-            'label' => $this->gT('Global permissions for new users'),
-            'help' => sprintf(
-                $this->gT('A JSON object describing the default permissions to be assigned to users that are automatically created. The JSON object has the following form: %s'),
-                CHtml::tag('pre', [], "{\n\t\"surveys\": { ... },\n\t\"templates\": {\n\t\t\"create\": false,\n\t\t\"read\": false,\n\t\t\"update\": false,\n\t\t\"delete\": false,\n\t\t\"import\": false,\n\t\t\"export\": false,\n\t},\n\t\"users\": { ... },\n\t...\n}")
-            ),
-            'editorOptions' => array('mode' => 'tree'),
-            'default' => $this->getGlobalSetting(
-                'autocreate_permissions',
-                self::getDefaultPermission()
-            ),
-            'htmlOptions' => [
-                'disabled' => in_array('autocreate_permissions', $fixedPluginSettings)
-            ],
-        ];
+        
         /* Get current */
         $pluginSettings = parent::getPluginSettings($getValues);
         /* Update current for fixed one */
@@ -483,6 +578,7 @@ class AuthOAuth2 extends AuthPluginBase
     {
         $userIdentifier = $this->getUserName();
         $identity = $this->getEvent()->get('identity');
+        $hasRoleNeeded = false;
         if ($identity->plugin != self::class || $identity->username !== $userIdentifier) {
             return;
         }
@@ -537,9 +633,11 @@ class AuthOAuth2 extends AuthPluginBase
             foreach ($rolesToCheck as $role) {
                 if(in_array($role, $aRoles)) {
                     $incorrectRole=false;
+                    $hasRoleNeeded = true;
                 }
             }
             if ($incorrectRole) {
+                $hasRoleNeeded = false;
                 if ($this->getGlobalSetting('is_default')) {
                     $this->beforeLogout();
                     /* No way to connect : throw a 403 error (avoid looping) */
@@ -550,7 +648,11 @@ class AuthOAuth2 extends AuthPluginBase
                     return;
                 }
             }
+        } else {
+            $hasRoleNeeded = null;
         }
+        // In newUserSession, after OAuth data is loaded, before user creation/permission assignment:
+        $this->syncPermissionTemplatesFromRoles();
         if (!$user) {
             /* unregister to don't update event */
             $this->unsubscribe('getGlobalBasePermissions');
@@ -575,12 +677,7 @@ class AuthOAuth2 extends AuthPluginBase
             if (!$user->save()) {
                 throw new CHttpException(401, $this->gT('Failed to create new user'));
             }
-            $defaultPermissions = @json_decode($this->getGlobalSetting('autocreate_permissions', self::getDefaultPermission()), true);
-            if (!empty($defaultPermissions)) {
-                Permission::setPermissions($user->uid, 0, 'global', $defaultPermissions, true);
-            }
-            /* Add auth_oauth2 permission if not already exist*/
-            self::setOauthPermission($user->uid, true);
+            $this->setOauthPermission($user->uid, $hasRoleNeeded);
             /* Add optional roles */
             if (method_exists(Permissiontemplates::class, 'applyToUser')) {
                 $autocreateRoles = $this->getGlobalSetting('autocreate_roles');
@@ -588,8 +685,11 @@ class AuthOAuth2 extends AuthPluginBase
                     foreach ($autocreateRoles as $role) {
                         Permissiontemplates::model()->applyToUser($user->uid, $role);
                     }
+                } else {
+                    $this->setRolesToUser($user->uid);
                 }
-                $this->setRolesToUser($user->uid);
+            } else {
+                $this->assignDefaultPermissions($user->uid);
             }
             $this->setUsername($user->users_name);
             $this->setAuthSuccess($user, $oIdentityEvent);
@@ -597,19 +697,31 @@ class AuthOAuth2 extends AuthPluginBase
             /* Update roles if needed */
             if ($this->getGlobalSetting('roles_update', false)) {
                 UserInPermissionrole::model()->deleteAll("uid = :uid", [':uid' => $user->uid]);
-                $this->setRolesToUser($user->uid);
+                $this->setOauthPermission($user->uid, $hasRoleNeeded);
+                if (method_exists(Permissiontemplates::class, 'applyToUser')) {
+                    $autocreateRoles = $this->getGlobalSetting('autocreate_roles', []);
+                    if(!empty($autocreateRoles)) {
+                        foreach ($autocreateRoles as $role) {
+                            Permissiontemplates::model()->applyToUser($user->uid, $role);
+                        }
+                    } else {
+                        $this->setRolesToUser($user->uid);
+                    }
+                } else {
+                    $this->assignDefaultPermissions($user->uid);
+                }
             }
             /* Check for permission */
-            if (!Permission::model()->hasGlobalPermission('auth_oauth', 'read', $user->uid)) {
+            if (!Permission::model()->hasGlobalPermission('auth_oauth2', 'read', $user->uid)) {
                 /* Check if permission exist : if not create as true, else send error */
                 $permissionnExist = Permission::model()->findByAttributes([
                     'entity_id' => 0,
                     'entity' => 'global',
                     'uid' => $user->uid,
-                    'permission' => 'auth_oauth'
+                    'permission' => 'auth_oauth2'
                 ]);
                 if (empty($permissionnExist)) {
-                    Permission::model()->setGlobalPermission($user->uid, 'auth_oauth');
+                    Permission::model()->setGlobalPermission($user->uid, 'auth_oauth2');
                 } else {
                     if ($this->getGlobalSetting('is_default')) {
                         $this->beforeLogout();
@@ -690,14 +802,14 @@ class AuthOAuth2 extends AuthPluginBase
     public function getGlobalBasePermissions(): void
     {
         $this->getEvent()->append('globalBasePermissions', array(
-            'auth_oauth' => array(
+            'auth_oauth2' => array(
                 'create' => false,
                 'update' => false,
                 'delete' => false,
                 'import' => false,
                 'export' => false,
-                'title' => "Use OAuth authentication",
-                'description' => "Use OAuth authentication",
+                'title' => "Use OAuth2 authentication",
+                'description' => "Use OAuth2 authentication",
                 'img' => 'fa fa-user-circle-o'
             ),
         ));
@@ -821,76 +933,10 @@ class AuthOAuth2 extends AuthPluginBase
         return [];
     }
 
-     /**
-      * Return global default permission
-      * @return string
-      */
-    private static function getDefaultPermission()
-    {
-        return json_encode([
-            'surveys' => [
-                'create' => true,
-                'read' => false,
-                'update' => false,
-                'delete' => false,
-                'export' => false,
-            ],
-            'surveysgroups' => [
-                'create' => false,
-                'read' => true,
-                'update' => false,
-                'delete' => false,
-            ],
-            'labelsets' => [
-                'create' => false,
-                'read' => true,
-                'update' => false,
-                'delete' => false,
-                'import' => false,
-                'export' => false,
-            ],
-            'templates' => [
-                'create' => false,
-                'read' => true,
-                'update' => false,
-                'delete' => false,
-                'import' => false,
-                'export' => false,
-            ],
-            'users' => [
-                'create' => false,
-                'read' => false,
-                'update' => false,
-                'delete' => false,
-            ],
-            'usergroups' => [
-                'create' => false,
-                'read' => false,
-                'update' => false,
-                'delete' => false,
-            ],
-            'settings' => [
-                'read' => false,
-                'update' => false,
-                'import' => false,
-            ],
-            'participantpanel' => [
-                'create' => false,
-                'read' => false,
-                'update' => false,
-                'delete' => false,
-                'import' => false,
-                'export' => false,
-            ],
-            'auth_db' => [
-                'read' => false,
-            ]
-        ]);
-    }
-
     /**
      * Set the roles using current settings
      * @param integer $userId
+     * @param boolean $hasRoleNeeded
      */
     private function setRolesToUser($userId)
     {
@@ -915,41 +961,315 @@ class AuthOAuth2 extends AuthPluginBase
                         Permissiontemplates::model()->applyToUser($userId, $oRole->ptid);
                     }
                 }
-                // Set the auth_oauth global permission to 0 (not used if have roles, but keep it at 0 for roles_needed
-                if ($resetPermission) {
-                    self::setOauthPermission($userId, false);
+                error_log(sprintf("Roles %s checked to user %d", implode(', ', $aRoles), $userId));
+                if (!$resetPermission) {
+                    $this->setOauthPermission($userId, false);
                 }
             }
         }
     }
+
     /**
-     * Set Oauth permission  : use to create permission with 0 ar read_p or update if exist.
+     * Set Oauth2 permission and assign default permissions to a new user.
      * @param integer $userId
-     * @param boolean $read permission
+     * @param boolean $allow
      */
-    private static function setOauthPermission($userId, $allow = true)
+    private function setOauthPermission($userId, $allow = true)
     {
+        if ($allow == null) {
+            $allow = true;
+            error_log("Allow is null, set to true by default");
+        }
+
+        // 1. Set the auth_oauth2 global permission (controls login access)
         $oPermission = Permission::model()->find(
-            "uid= :uid AND entity = :entity AND permission = :permission",
-            array(
-                'uid' => $userId,
-                'entity' => 'global',
-                'permission' => 'auth_oauth',
-            )
+            "uid = :uid AND entity = :entity AND permission = :permission",
+            [
+                ':uid'        => $userId,
+                ':entity'     => 'global',
+                ':permission' => 'auth_oauth2',
+            ]
         );
         if (!$oPermission) {
             $oPermission = new Permission();
-            $oPermission->uid = $userId;
-            $oPermission->entity = 'global';
+            $oPermission->uid       = $userId;
+            $oPermission->entity    = 'global';
             $oPermission->entity_id = 0;
-            $oPermission->permission = 'auth_oauth';
+            $oPermission->permission = 'auth_oauth2';
         }
         $oPermission->create_p = 0;
-        $oPermission->read_p = intval(boolval($allow));
+        $oPermission->read_p   = $allow ? 1 : 0;
         $oPermission->update_p = 0;
         $oPermission->delete_p = 0;
         $oPermission->import_p = 0;
         $oPermission->export_p = 0;
         $oPermission->save();
+
+        // Only assign default permissions when allowing (i.e. new user creation)
+        if (!$allow) {
+            return;
+        }
+    }
+
+    function assignDefaultPermissions($userId)
+    {
+        // Delete any stale global permission records before reinserting
+        foreach (['surveys', 'templates', 'usergroups', 'labelsets', 'participantpanel', 'settings'] as $perm) {
+            Permission::model()->deleteAll(
+                "uid = :uid AND entity = 'global' AND permission = :permission",
+                [':uid' => $userId, ':permission' => $perm]
+            );
+        }
+        // Also clean up template read permission to avoid duplicate on retry
+        Permission::model()->deleteAll(
+            "uid = :uid AND entity = 'template' AND permission = :permission",
+            [':uid' => $userId, ':permission' => getGlobalSetting('defaulttheme')]
+        );
+        
+        // 2. Default theme template read permission (mirrors SAML's insertSomeRecords)
+        Permission::model()->insertSomeRecords([
+            'uid'        => $userId,
+            'permission' => getGlobalSetting('defaulttheme'),
+            'entity_id'  => 0,
+            'entity'     => 'template',
+            'read_p'     => 1,
+        ]);
+        // 3. Set permissions: Label Sets
+        $auto_create_labelsets = $this->getGlobalSetting('auto_create_labelsets', '');
+        if (!empty($auto_create_labelsets)) {
+            Permission::model()->setGlobalPermission($userId, 'labelsets', $this->getGlobalSetting($auto_create_labelsets, []));
+        }
+
+        // 4. Set permissions: Participant Panel
+        $auto_create_participant_panel = $this->getGlobalSetting('auto_create_participant_panel', '');
+        if (!empty($auto_create_participant_panel)) {
+            Permission::model()->setGlobalPermission($userId, 'participantpanel', $this->getGlobalSetting($auto_create_participant_panel, []));
+        }
+
+        // 5. Set permissions: Settings & Plugins
+        $auto_create_settings_plugins = $this->getGlobalSetting('auto_create_settings_plugins', '');
+        if (!empty($auto_create_settings_plugins)) {
+            Permission::model()->setGlobalPermission($userId, 'settings', $this->getGlobalSetting($auto_create_settings_plugins, []));
+        }
+
+        // 6. Set permissions: Surveys
+        $auto_create_surveys = $this->getGlobalSetting('auto_create_surveys', 'create_p,read_p,update_p,delete_p,export_p');
+        if (!empty($auto_create_surveys)) {
+            Permission::model()->setGlobalPermission($userId, 'surveys', $this->getGlobalSetting($auto_create_surveys, []));
+        }
+
+        // 7. Set permissions: Templates
+        $auto_create_templates = $this->getGlobalSetting('auto_create_templates', 'create_p,read_p,update_p,delete_p,import_p,export_p');
+        if (!empty($auto_create_templates)) {
+            Permission::model()->setGlobalPermission($userId, 'templates', $this->getGlobalSetting($auto_create_templates, []));
+        }
+
+        // 8. Set permissions: User Groups
+        $auto_create_user_groups = $this->getGlobalSetting('auto_create_user_groups', 'create_p,read_p,update_p,delete_p');
+        if (!empty($auto_create_user_groups)) {
+            Permission::model()->setGlobalPermission($userId, 'usergroups', $this->getGlobalSetting($auto_create_user_groups, []));
+        }
+    }
+
+    /**
+     * Sync PermissionTemplates from the roles_key OAuth resource data.
+     * Creates or updates templates based on auto_create_* settings.
+     * Does NOT assign any permissions to users.
+     * Should be called on admin/first login to keep templates in sync.
+     * @return array ['created' => [], 'updated' => [], 'failed' => []]
+     */
+    private function syncPermissionTemplatesFromRoles(): array
+    {
+        $result = ['created' => [], 'updated' => [], 'failed' => []];
+
+        if (!method_exists(Permissiontemplates::class, 'applyToUser')) {
+            error_log("Permissiontemplates::applyToUser not available, skipping sync.");
+            return $result;
+        }
+
+        $autocreateRoles = $this->getGlobalSetting('autocreate_roles');
+        if (!empty($autocreateRoles)) {
+            return $result; // If specific roles are set for auto-creation, skip syncing templates from roles_key
+        }
+
+        $rolesKey = $this->getGlobalSetting('roles_key', '');
+        if (empty($rolesKey)) {
+            error_log("No roles_key configured, skipping PermissionTemplates sync.");
+            return $result;
+        }
+        
+        $rolesToCheck = [];
+        if ($this->getGlobalSetting('roles_to_check', '') != '') {
+            $rolesToCheck=explode($this->getGlobalSetting('roles_to_check_separator', ','),$this->getGlobalSetting('roles_to_check', ''));
+        } else {    
+            error_log("No roles_to_check configured, skipping PermissionTemplates sync to avoid conflicts.");
+            return $result;
+        }
+
+        try {
+            $aRoles = (array) $this->getFromResourceData($rolesKey);
+        } catch (Throwable $e) {
+            error_log(sprintf("Failed to read roles_key data: %s", $e->getMessage()));
+            return $result;
+        }
+
+        if (empty($aRoles)) {
+            error_log("roles_key returned no roles, skipping PermissionTemplates sync.");
+            return $result;
+        }
+
+        // Build the permission data from auto_create_* settings
+        // This is the same map used in assignDefaultPermissions
+        $permissionMap = [
+            'auto_create_participant_panel' => ['entity' => 'participantpanel'],
+            'auto_create_labelsets'        => ['entity' => 'labelsets'],
+            'auto_create_settings_plugins' => ['entity' => 'settings'],
+            'auto_create_surveys_groups'    => ['entity' => 'surveysgroups'],
+            'auto_create_surveys'          => ['entity' => 'surveys'],
+            'auto_create_templates'        => ['entity' => 'templates'],
+            'auto_create_user_groups'      => ['entity' => 'usergroups'],
+            'users'                        => ['entity' => 'users', 'default' => []],                // Include the core users permission for completeness
+            'superadmin'                   => ['entity' => 'superadmin', 'default' => []],          // Include the core superadmin permission for completeness
+            'auth_db'                      => ['entity' => 'auth_db', 'default' => []],              // Exclude the core auth_db permission for completeness
+            'auth_oauth2'                  => ['entity' => 'auth_oauth2', 'default' => ['read_p']], // Include the core auth_oauth2 permission for completeness
+        ];
+
+        // Pre-compute the permissions array from settings once
+        // Format: ['surveys' => ['create_p', 'update_p', ...], 'templates' => [...], ...]
+        $resolvedPermissions = [];
+        foreach ($permissionMap as $setting => $config) {
+            $value = $this->getGlobalSetting($setting, array_key_exists('default', $config) ? $config['default'] : []);
+            error_log(sprintf("Resolved permissions for setting '%s': %s", $setting, json_encode($value)));
+            if (!empty($value)) {
+                $resolvedPermissions[$config['entity']] = $value;
+            }
+        }
+
+        foreach ($aRoles as $role) {
+            $role = str_replace(
+                $this->getGlobalSetting('roles_removetext', ''),
+                '',
+                $role
+            );
+
+            if (empty($role)) {
+                continue;
+            }
+
+            try {
+                // Find existing template by name
+                $criteria = new CDbCriteria();
+                if ($this->getGlobalSetting('roles_insensitive', false)) {
+                    $criteria->compare('LOWER(name)', strtolower($role), true);
+                } else {
+                    $criteria->compare('name', $role, true);
+                }
+                $oTemplate = Permissiontemplates::model()->find($criteria);
+                $isNew = false;
+
+                if (!$oTemplate) {
+                    $oTemplate = new Permissiontemplates();
+                    $oTemplate->name       = $role;
+                    $oTemplate->created_at = date('Y-m-d H:i:s');
+                    $oTemplate->created_by = 1;
+                    $isNew = true;
+                }
+
+                $oTemplate->description  = sprintf('OAuth2 role: %s (synced by AuthOAuth2)', $role);
+                $oTemplate->renewed_last = date('Y-m-d H:i:s');
+
+                if (!$oTemplate->save()) {
+                    error_log(sprintf(
+                        "Failed to %s PermissionTemplate '%s': %s",
+                        $isNew ? 'create' : 'update',
+                        $role,
+                        json_encode($oTemplate->getErrors())
+                    ));
+                    $result['failed'][] = $role;
+                    continue;
+                }
+
+                // Now sync the permission records for this template.
+                // Update existing ones and reinsert from current settings
+                // so the template always reflects the current plugin config.
+                if (in_array($role, $rolesToCheck)) {
+                    foreach ($resolvedPermissions as $entity => $perms) {
+                        // Ensure $perms is always an array
+                        $perms = is_array($perms) ? $perms : [];
+                        // Consistently use uid=0, entity_id=ptid for template permissions
+                        $oPermission = Permission::model()->find(
+                            "uid = :uid AND entity_id = :entity_id AND entity = :entity AND permission = :permission",
+                            [
+                                ':uid'        => 0, // Always 0 for template permissions
+                                ':entity_id'  => $oTemplate->ptid, // ptid as entity_id
+                                ':entity'     => 'role',
+                                ':permission' => $entity,
+                            ]
+                        );
+
+                        if (!$oPermission) {
+                            $oPermission = new Permission();
+                            $oPermission->uid        = 0;
+                            $oPermission->entity_id  = $oTemplate->ptid;
+                            $oPermission->entity     = 'role';
+                            $oPermission->permission = $entity;
+                        }
+
+                        $oPermission->create_p = in_array('create_p', $perms) ? 1 : 0;
+                        $oPermission->read_p   = in_array('read_p',   $perms) ? 1 : 0;
+                        $oPermission->update_p = in_array('update_p', $perms) ? 1 : 0;
+                        $oPermission->delete_p = in_array('delete_p', $perms) ? 1 : 0;
+                        $oPermission->import_p = in_array('import_p', $perms) ? 1 : 0;
+                        $oPermission->export_p = in_array('export_p', $perms) ? 1 : 0;
+
+                        if (!$oPermission->save()) {
+                            error_log(sprintf(
+                                "Failed to save permission '%s' for template '%s' (ptid=%d): %s",
+                                $entity,
+                                $oTemplate->name,
+                                $oTemplate->ptid,
+                                json_encode($oPermission->getErrors())
+                            ));
+                        } else {
+                            error_log(sprintf(
+                                "Saved permission '%s' for template '%s' (ptid=%d): create=%d read=%d update=%d delete=%d import=%d export=%d",
+                                $entity,
+                                $oTemplate->name,
+                                $oTemplate->ptid,
+                                $oPermission->create_p,
+                                $oPermission->read_p,
+                                $oPermission->update_p,
+                                $oPermission->delete_p,
+                                $oPermission->import_p,
+                                $oPermission->export_p
+                            ));
+                        }
+                    }
+                }
+                if ($isNew) {
+                    $result['created'][] = $role;
+                    error_log(sprintf("PermissionTemplate '%s' created (ptid=%d)", $role, $oTemplate->ptid));
+                } else {
+                    $result['updated'][] = $role;
+                    error_log(sprintf("PermissionTemplate '%s' updated (ptid=%d)", $role, $oTemplate->ptid));
+                }
+
+            } catch (Throwable $e) {
+                error_log(sprintf(
+                    "Exception while syncing PermissionTemplate '%s': %s",
+                    $role, $e->getMessage()
+                ));
+                $result['failed'][] = $role;
+            }
+        }
+
+        error_log(sprintf(
+            "PermissionTemplates sync complete — created: [%s], updated: [%s], failed: [%s]",
+            implode(', ', $result['created']),
+            implode(', ', $result['updated']),
+            implode(', ', $result['failed'])
+        ));
+
+        return $result;
     }
 }
