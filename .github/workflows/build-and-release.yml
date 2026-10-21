@@ -38,6 +38,8 @@ jobs:
       - name: Create GitHub release
         if: steps.compare_version.outputs.version_mismatch == 'false'
         id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         uses: actions/create-release@v1
         with:
           tag_name: ${{ github.ref_name }}
