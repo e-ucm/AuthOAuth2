@@ -1,0 +1,116 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.6
+        env:
+          MARIADB_ROOT_PASSWORD: test
+          MARIADB_DATABASE: limesurvey
+          MARIADB_USER: root
+          MARIADB_PASSWORD: test
+        options:
+          --health-cmd "mysqladmin ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get tag version
+        id: get_version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Compare config.xml version with tag
+        id: compare_version
+        run: |
+          CONFIG_VERSION=$(grep -m1 '<version>' config.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          TAG_VERSION=${{ steps.get_version.outputs.version }}
+          if [ "$CONFIG_VERSION" != "$TAG_VERSION" ]; then
+            echo "version_mismatch=true" >> $GITHUB_OUTPUT
+          else
+            echo "version_mismatch=false" >> $GITHUB_OUTPUT
+          fi
+          echo "Config version: $CONFIG_VERSION"
+          echo "Tag version: $TAG_VERSION"
+
+      - name: Lint PHP syntax
+        run: php -l config.xml
+
+      - name: Deploy and test plugin on LimeSurvey
+        if: steps.compare_version.outputs.version_mismatch == 'false'
+        run: |
+          docker pull martialblog/limesurvey:7-apache
+          docker run -d --name test-ls \
+            -e DB_HOST=mariadb \
+            -e DB_USERNAME=root \
+            -e DB_PASSWORD=test \
+            -e DB_NAME=limesurvey \
+            -e ADMIN_PASSWORD=test \
+            -p 8080:80 \
+            martialblog/limesurvey:7-apache
+          sleep 20
+          docker cp . test-ls:/var/www/html/plugins/AuthOAuth2
+          docker exec test-ls chmod -R 755 /var/www/html/plugins/AuthOAuth2/
+
+      - name: Register plugin in LimeSurvey database
+        if: steps.compare_version.outputs.version_mismatch == 'false'
+        run: |
+          VERSION=$(grep -m1 '<version>' config.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          docker exec test-mariadb mysql -u root -ptest limesurvey -e "INSERT INTO lime_plugins (name, plugin_type, active, priority, version) VALUES ('AuthOAuth2', 'core', 1, 1, '$VERSION') ON DUPLICATE KEY UPDATE version='$VERSION', active=1, priority=1;"
+
+      - name: Restart LimeSurvey to load plugin
+        if: steps.compare_version.outputs.version_mismatch == 'false'
+        run: docker restart test-ls
+
+      - name: Verify plugin loaded
+        if: steps.compare_version.outputs.version_mismatch == 'false'
+        run: sleep 5 && docker logs test-ls 2>&1 | grep -i "successfully" || exit 1
+
+      - name: Create GitHub release
+        if: steps.compare_version.outputs.version_mismatch == 'false'
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: AuthOAuth2 ${{ github.ref_name }}
+          body: Release for LimeSurvey AuthOAuth2 plugin
+
+      - name: Run build.sh
+        if: steps.compare_version.outputs.version_mismatch == 'false'
+        run: |
+          chmod +x build.sh
+          ./build.sh --build ${{ steps.get_version.outputs.version }}
+
+      - name: Upload release assets
+        if: steps.compare_version.outputs.version_mismatch == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: builds-${{ steps.get_version.outputs.version }}/AuthOAuth2-${{ steps.get_version.outputs.version }}.zip
+          asset_name: AuthOAuth2-${{ steps.get_version.outputs.version }}.zip
+          asset_content_type: application/zip
+
+      - name: Upload SHA256SUMS asset
+        if: steps.compare_version.outputs.version_mismatch == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: builds-${{ steps.get_version.outputs.version }}/SHA256SUMS
+          asset_name: SHA256SUMS
+          asset_content_type: text/plain
