@@ -18,18 +18,20 @@ jobs:
       - name: Deploy and test plugin on LimeSurvey
         run: |
           docker compose up -d
-          sleep 30
+          sleep 35
           chmod -R 755 .
+          docker compose logs 
+          docker ps
 
       - name: Wait for MariaDB to be ready
         run: |
-          for i in {1..15}; do
+          for i in {1..20}; do
             if docker compose exec test-mariadb mysql -u root -ptest -e "SELECT 1" > /dev/null 2>&1; then
               echo "MariaDB is ready"
               break
             fi
-            echo "Waiting for MariaDB... ($i/15)"
-            sleep 5
+            echo "Waiting for MariaDB... ($i/20)"
+            sleep 4
           done
 
       - name: Register plugin in LimeSurvey database
