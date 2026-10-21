@@ -14,6 +14,7 @@ jobs:
     services:
       mariadb:
         image: mariadb:10.6
+        name: mariadb
         env:
           MARIADB_ROOT_PASSWORD: test
           MARIADB_DATABASE: limesurvey
