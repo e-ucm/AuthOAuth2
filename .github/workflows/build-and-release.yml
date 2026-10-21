@@ -43,6 +43,7 @@ jobs:
         uses: actions/create-release@v1
         with:
           tag_name: ${{ github.ref_name }}
+          fail_on_exists: false
           release_name: AuthOAuth2 ${{ github.ref_name }}
           body: Release for LimeSurvey AuthOAuth2 plugin
 
