@@ -1,0 +1,40 @@
+services:
+  mariadb:
+    image: mariadb:10.6
+    container_name: test-mariadb
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=test
+      - MARIADB_DATABASE=limesurvey
+      - MARIADB_USER=root
+      - MARIADB_PASSWORD=test
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    ports:
+      - "3306:3306"
+
+  limesurvey:
+    image: martialblog/limesurvey:7-apache
+    container_name: test-ls
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      - DB_HOST=mariadb
+      - DB_USERNAME=root
+      - DB_PASSWORD=test
+      - DB_NAME=limesurvey
+      - ADMIN_PASSWORD=test
+    volumes:
+      - ./:/var/www/html/plugins/AuthOAuth2:ro
+    depends_on:
+      mariadb:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mariadb_data:

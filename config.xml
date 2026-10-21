@@ -4,16 +4,17 @@
         <name>AuthOAuth2</name>
         <type>plugin</type>
         <creationDate>2021-12-09</creationDate>
-        <lastUpdate>2025-05-15</lastUpdate>
+        <lastUpdate>2026-10-21</lastUpdate>
         <author>Roman Anasal,  Ulysseus European University , Denis Chenu, Julio Santilario Berthilier, eUCM Team</author>
         <authorUrl>https://github.com/e-ucm/AuthOAuth2</authorUrl>
-        <version>1.5.0</version>
+        <version>1.6.1</version>
         <license>MIT</license>
         <description>Enable Single Sign-On using OAuth2</description>
     </metadata>
 
     <compatibility>
         <version>6</version>
+        <version>7</version>
     </compatibility>
 
     <updaters disabled="disabled">
