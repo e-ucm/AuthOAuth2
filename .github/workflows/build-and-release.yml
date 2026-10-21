@@ -40,7 +40,7 @@ jobs:
         id: create_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        uses: actions/github-script
+        uses: actions/github-script@v6
         with:
           script: |
             const tag = '${{ github.ref_name }}';
