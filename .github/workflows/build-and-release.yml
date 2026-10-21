@@ -40,12 +40,29 @@ jobs:
         id: create_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        uses: actions/create-release@v2
+        uses: actions/github-script
         with:
-          tag_name: ${{ github.ref_name }}
-          fail_on_exists: false
-          release_name: AuthOAuth2 ${{ github.ref_name }}
-          body: Release for LimeSurvey AuthOAuth2 plugin
+          script: |
+            const tag = '${{ github.ref_name }}';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const releaseExists = await github.rest.repos.getReleaseByTag({
+              owner,
+              repo,
+              tag_name: tag
+            });
+            if (!releaseExists.data.url) {
+              const release = await github.rest.repos.createRelease({
+                owner,
+                repo,
+                tag_name: tag,
+                name: `AuthOAuth2 ${tag}`,
+                body: 'Release for LimeSurvey AuthOAuth2 plugin',
+                draft: false,
+                prerelease: false
+              });
+            }
+          result-encoding: string
 
       - name: Run build.sh
         if: steps.compare_version.outputs.version_mismatch == 'false'
