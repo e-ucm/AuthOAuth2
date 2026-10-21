@@ -14,11 +14,6 @@ services:
       - mariadb_data:/var/lib/mysql
     ports:
       - "3306:3306"
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   limesurvey:
     image: martialblog/limesurvey:7-apache
@@ -36,7 +31,7 @@ services:
       - ./:/var/www/html/plugins/AuthOAuth2:ro
     depends_on:
       mariadb:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/"]
       interval: 30s

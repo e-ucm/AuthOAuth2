@@ -1,0 +1,33 @@
+name: Deploy and Test Plugin
+
+on:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint PHP syntax
+        run: php -l config.xml
+
+      - name: Deploy and test plugin on LimeSurvey
+        run: |
+          docker compose up -d
+          sleep 25
+          chmod -R 755 .
+
+      - name: Register plugin in LimeSurvey database
+        run: |
+          VERSION=$(grep -m1 '<version>' config.xml | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+          docker compose exec test-mariadb mysql -u root -ptest limesurvey -e "INSERT INTO lime_plugins (name, plugin_type, active, priority, version) VALUES ('AuthOAuth2', 'core', 1, 1, '$VERSION') ON DUPLICATE KEY UPDATE version='$VERSION', active=1, priority=1;"
+
+      - name: Restart LimeSurvey to load plugin
+        run: docker compose restart
+
+      - name: Verify plugin loaded
+        run: sleep 5 && docker compose logs test-ls 2>&1 | grep -i "successfully" || exit 1
