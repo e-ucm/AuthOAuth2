@@ -62,6 +62,11 @@ jobs:
                 draft: false,
                 prerelease: false
               });
+              core.setOutput('upload_url', release.data.upload_url);
+            } else {
+              // Get the existing release's upload URL
+              const existingRelease = releases.data.find(r => r.tag_name === tag);
+              core.setOutput('upload_url', existingRelease.upload_url);
             }
           result-encoding: string
 
