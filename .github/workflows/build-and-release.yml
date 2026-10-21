@@ -56,8 +56,8 @@ jobs:
             -p 8080:80 \
             martialblog/limesurvey:7-apache
           sleep 20
+          chmod -R 755 .
           docker cp . test-ls:/var/www/html/plugins/AuthOAuth2
-          docker exec test-ls chmod -R 755 /var/www/html/plugins/AuthOAuth2/
 
       - name: Register plugin in LimeSurvey database
         if: steps.compare_version.outputs.version_mismatch == 'false'
